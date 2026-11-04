@@ -34,6 +34,32 @@ db.exec(`
     message TEXT NOT NULL,
     created_at TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS monitors (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    interval_minutes INTEGER DEFAULT 60,
+    alert_type TEXT DEFAULT 'telegram',
+    alert_destination TEXT NOT NULL,
+    status TEXT DEFAULT 'active',
+    last_checked_at TEXT,
+    last_status INTEGER,
+    last_health_score INTEGER,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_monitors_status ON monitors(status);
+
+  CREATE TABLE IF NOT EXISTS monitor_logs (
+    id TEXT PRIMARY KEY,
+    monitor_id TEXT NOT NULL,
+    scan_id TEXT,
+    status_code INTEGER,
+    health_score INTEGER,
+    alert_sent INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_monitor_logs_created_at ON monitor_logs(created_at DESC);
 `);
 
 export interface ScanRecord {
@@ -139,3 +165,90 @@ export function listFeedbacks() {
   const stmt = db.prepare(`SELECT * FROM feedbacks ORDER BY created_at DESC LIMIT 50`);
   return stmt.all();
 }
+
+export interface MonitorRecord {
+  id: string;
+  name: string;
+  url: string;
+  interval_minutes: number;
+  alert_type: "telegram" | "webhook";
+  alert_destination: string;
+  status: "active" | "paused";
+  last_checked_at: string | null;
+  last_status: number | null;
+  last_health_score: number | null;
+  created_at: string;
+}
+
+export function createMonitor(data: {
+  name: string;
+  url: string;
+  intervalMinutes?: number;
+  alertType: "telegram" | "webhook";
+  alertDestination: string;
+}) {
+  const id = `mon_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+  const now = new Date().toISOString();
+  const stmt = db.prepare(`
+    INSERT INTO monitors (
+      id, name, url, interval_minutes, alert_type, alert_destination,
+      status, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?)
+  `);
+  stmt.run(
+    id,
+    data.name,
+    data.url,
+    data.intervalMinutes || 60,
+    data.alertType,
+    data.alertDestination,
+    now
+  );
+  return { id, createdAt: now };
+}
+
+export function listMonitors(): MonitorRecord[] {
+  const stmt = db.prepare(`SELECT * FROM monitors ORDER BY created_at DESC`);
+  return stmt.all() as MonitorRecord[];
+}
+
+export function getMonitor(id: string): MonitorRecord | null {
+  const stmt = db.prepare(`SELECT * FROM monitors WHERE id = ? LIMIT 1`);
+  return (stmt.get(id) as MonitorRecord) || null;
+}
+
+export function updateMonitorCheck(
+  id: string,
+  statusCode: number,
+  healthScore: number,
+  scanId?: string,
+  alertSent = false
+) {
+  const now = new Date().toISOString();
+  const updateStmt = db.prepare(`
+    UPDATE monitors
+    SET last_checked_at = ?, last_status = ?, last_health_score = ?
+    WHERE id = ?
+  `);
+  updateStmt.run(now, statusCode, healthScore, id);
+
+  const logStmt = db.prepare(`
+    INSERT INTO monitor_logs (id, monitor_id, scan_id, status_code, health_score, alert_sent, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  const logId = `log_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+  logStmt.run(logId, id, scanId || null, statusCode, healthScore, alertSent ? 1 : 0, now);
+}
+
+export function toggleMonitorStatus(id: string, newStatus: "active" | "paused") {
+  const stmt = db.prepare(`UPDATE monitors SET status = ? WHERE id = ?`);
+  const res = stmt.run(newStatus, id);
+  return (res.changes as number) > 0;
+}
+
+export function deleteMonitor(id: string) {
+  const stmt = db.prepare(`DELETE FROM monitors WHERE id = ?`);
+  const res = stmt.run(id);
+  return (res.changes as number) > 0;
+}
+

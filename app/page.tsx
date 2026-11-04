@@ -31,6 +31,7 @@ import {
   Compass,
   MessageSquare,
   Sparkles,
+  Bell,
 } from "lucide-react";
 
 interface RequestItem {
@@ -420,6 +421,14 @@ ${result.diagnostics
               <History className="w-4 h-4 text-indigo-400" />
               Riwayat ({historyList.length})
             </button>
+
+            <Link
+              href="/monitoring"
+              className="inline-flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 px-3 py-2 rounded-lg text-xs font-semibold transition"
+            >
+              <Bell className="w-3.5 h-3.5 text-rose-400" />
+              Auto Monitor (Pro)
+            </Link>
 
             <button
               onClick={() => setShowFeedback(true)}
