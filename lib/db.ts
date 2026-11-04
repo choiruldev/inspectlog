@@ -27,6 +27,13 @@ db.exec(`
     data TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_scans_created_at ON scans(created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS feedbacks (
+    id TEXT PRIMARY KEY,
+    email TEXT,
+    message TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
 `);
 
 export interface ScanRecord {
@@ -116,4 +123,19 @@ export function deleteScan(id: string): boolean {
   const stmt = db.prepare(`DELETE FROM scans WHERE id = ?`);
   const res = stmt.run(id);
   return (res.changes as number) > 0;
+}
+
+export function saveFeedback(email: string, message: string) {
+  const stmt = db.prepare(`
+    INSERT INTO feedbacks (id, email, message, created_at)
+    VALUES (?, ?, ?, ?)
+  `);
+  const id = `fb_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+  stmt.run(id, email || null, message, new Date().toISOString());
+  return { id };
+}
+
+export function listFeedbacks() {
+  const stmt = db.prepare(`SELECT * FROM feedbacks ORDER BY created_at DESC LIMIT 50`);
+  return stmt.all();
 }

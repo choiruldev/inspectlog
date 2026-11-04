@@ -29,6 +29,8 @@ import {
   Trash2,
   Globe,
   Compass,
+  MessageSquare,
+  Sparkles,
 } from "lucide-react";
 
 interface RequestItem {
@@ -160,6 +162,39 @@ export default function Home() {
   const [showHistory, setShowHistory] = useState(false);
   const [historyList, setHistoryList] = useState<HistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Beta Feedback state
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [fbEmail, setFbEmail] = useState("");
+  const [fbMessage, setFbMessage] = useState("");
+  const [fbSubmitting, setFbSubmitting] = useState(false);
+  const [fbSuccess, setFbSuccess] = useState(false);
+
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fbMessage.trim()) return;
+    setFbSubmitting(true);
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: fbEmail, message: fbMessage }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFbSuccess(true);
+        setTimeout(() => {
+          setFbSuccess(false);
+          setShowFeedback(false);
+          setFbMessage("");
+        }, 1500);
+      }
+    } catch {
+      // silent
+    } finally {
+      setFbSubmitting(false);
+    }
+  };
 
   const fetchHistory = async () => {
     setLoadingHistory(true);
@@ -384,6 +419,14 @@ ${result.diagnostics
             >
               <History className="w-4 h-4 text-indigo-400" />
               Riwayat ({historyList.length})
+            </button>
+
+            <button
+              onClick={() => setShowFeedback(true)}
+              className="inline-flex items-center gap-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-3 py-2 rounded-lg text-xs font-medium transition"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              Feedback (Beta)
             </button>
 
             {result && (
@@ -1548,6 +1591,79 @@ ${result.diagnostics
                   ))
                 )}
               </div>
+            </div>
+          </div>
+        )}
+        {/* Modal: Feedback & Pro Wishlist */}
+        {showFeedback && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-indigo-400" />
+                  <h3 className="font-bold text-sm text-white">Beri Masukan / Request Fitur</h3>
+                </div>
+                <button
+                  onClick={() => setShowFeedback(false)}
+                  className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {fbSuccess ? (
+                <div className="p-6 text-center space-y-2">
+                  <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
+                  <h4 className="font-bold text-white text-sm">Terima Kasih atas Masukan Anda!</h4>
+                  <p className="text-xs text-slate-400">Masukan Anda sangat berharga untuk pengembangan rilis publik berikutnya.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitFeedback} className="space-y-3 text-xs">
+                  <p className="text-slate-400">
+                    Bantu kami menyempurnakan tool ini. Tulis saran fitur, kritik bug, atau email Anda jika ingin diinfokan saat fitur Pro (Monitoring berkala & alert bot) rilis.
+                  </p>
+
+                  <div>
+                    <label className="text-slate-300 block mb-1 font-medium">Email Anda (Opsional):</label>
+                    <input
+                      type="email"
+                      placeholder="nama@perusahaan.com"
+                      value={fbEmail}
+                      onChange={(e) => setFbEmail(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-slate-300 block mb-1 font-medium">Pesan Masukan / Fitur yang Diinginkan: *</label>
+                    <textarea
+                      rows={4}
+                      required
+                      placeholder="Contoh: Tolong tambahkan integrasi notifikasi ke Telegram atau export file HAR..."
+                      value={fbMessage}
+                      onChange={(e) => setFbMessage(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setShowFeedback(false)}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2 rounded-lg font-medium transition"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={fbSubmitting || !fbMessage.trim()}
+                      className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-1.5"
+                    >
+                      {fbSubmitting ? "Mengirim..." : "Kirim Masukan"}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         )}

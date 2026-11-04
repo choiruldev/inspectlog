@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chromium, Browser, BrowserContext, Page } from "playwright";
 import { saveScan } from "@/lib/db";
+import { checkRateLimit } from "@/lib/rate-limiter";
 import crypto from "node:crypto";
 
 export const maxDuration = 120; // Allow up to 120s for multi-page crawl
@@ -61,6 +62,17 @@ export async function POST(req: NextRequest) {
   let context: BrowserContext | null = null;
 
   try {
+    const forwarded = req.headers.get("x-forwarded-for");
+    const clientIp = forwarded ? forwarded.split(",")[0].trim() : "127.0.0.1";
+    const rateCheck = checkRateLimit(clientIp, 25, 3600000); // 25 scans per hour per IP
+
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: "Batas pemindaian tercapai (Maksimal 25 scan per jam). Silakan tunggu sebentar." },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const {
       url,
