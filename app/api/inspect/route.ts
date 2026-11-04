@@ -3,7 +3,7 @@ import { chromium, Browser, BrowserContext, Page } from "playwright";
 import { saveScan } from "@/lib/db";
 import crypto from "node:crypto";
 
-export const maxDuration = 60; // Allow up to 60s for Playwright scan
+export const maxDuration = 120; // Allow up to 120s for multi-page crawl
 
 interface RequestItem {
   id: string;
@@ -22,6 +22,7 @@ interface RequestItem {
   failed: boolean;
   failureReason: string | null;
   isError: boolean;
+  pageOriginUrl?: string; // which page triggered this request
   timestamp: number;
 }
 
@@ -34,6 +35,7 @@ interface ConsoleItem {
     lineNumber?: number;
     columnNumber?: number;
   };
+  pageOriginUrl?: string;
   timestamp: number;
 }
 
@@ -41,7 +43,17 @@ interface PageErrorItem {
   id: string;
   message: string;
   stack?: string;
+  pageOriginUrl?: string;
   timestamp: number;
+}
+
+interface CrawledPageSummary {
+  url: string;
+  pageTitle: string;
+  status: number;
+  durationMs: number;
+  errorRequestsCount: number;
+  consoleErrorsCount: number;
 }
 
 export async function POST(req: NextRequest) {
@@ -58,6 +70,8 @@ export async function POST(req: NextRequest) {
       rawHeaders = "",
       loginConfig,
       captureScreenshot = true,
+      crawlMode = "single", // "single" | "multi"
+      maxPages = 3, // default 3 pages for multi
     } = body;
 
     if (!url || typeof url !== "string") {
@@ -68,6 +82,9 @@ export async function POST(req: NextRequest) {
     }
 
     const scanId = `scan_${Date.now().toString(36)}_${crypto.randomBytes(3).toString("hex")}`;
+    const targetUrlObj = new URL(url.startsWith("http") ? url : `https://${url}`);
+    const originHostname = targetUrlObj.hostname;
+    const originBase = `${targetUrlObj.protocol}//${targetUrlObj.host}`;
 
     // Launch Playwright using installed Google Chrome or Chromium
     try {
@@ -109,7 +126,6 @@ export async function POST(req: NextRequest) {
     // Handle Cookies
     if (authMode === "cookies" && rawCookies) {
       try {
-        const targetUrlObj = new URL(url);
         const domain = targetUrlObj.hostname;
 
         if (rawCookies.trim().startsWith("[")) {
@@ -146,6 +162,7 @@ export async function POST(req: NextRequest) {
     const page: Page = await context.newPage();
 
     // Data containers
+    let currentNavigatingUrl = targetUrlObj.href;
     const requestsMap = new Map<string, RequestItem>();
     const consoleLogs: ConsoleItem[] = [];
     const pageErrors: PageErrorItem[] = [];
@@ -157,6 +174,7 @@ export async function POST(req: NextRequest) {
         type: msg.type(),
         text: msg.text(),
         location: msg.location(),
+        pageOriginUrl: currentNavigatingUrl,
         timestamp: Date.now(),
       });
     });
@@ -167,6 +185,7 @@ export async function POST(req: NextRequest) {
         id: `err_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         message: err.message,
         stack: err.stack,
+        pageOriginUrl: currentNavigatingUrl,
         timestamp: Date.now(),
       });
     });
@@ -221,6 +240,7 @@ export async function POST(req: NextRequest) {
         failed: false,
         failureReason: null,
         isError: false,
+        pageOriginUrl: currentNavigatingUrl,
         timestamp: Date.now(),
       });
     });
@@ -280,6 +300,7 @@ export async function POST(req: NextRequest) {
           failed: false,
           failureReason: null,
           isError,
+          pageOriginUrl: currentNavigatingUrl,
           timestamp: Date.now(),
         });
       }
@@ -314,6 +335,7 @@ export async function POST(req: NextRequest) {
           failed: true,
           failureReason: reason,
           isError: true,
+          pageOriginUrl: currentNavigatingUrl,
           timestamp: Date.now(),
         });
       }
@@ -345,34 +367,110 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Navigate to target URL
+    // Navigation and Crawl Queue
     const navStartTime = Date.now();
-    let navError: string | null = null;
-    try {
-      await page.goto(url, {
-        waitUntil: "load",
-        timeout: 30000,
-      });
-    } catch (err: any) {
-      navError = err.message;
-    }
+    let initialNavError: string | null = null;
+    const crawledPages: CrawledPageSummary[] = [];
+    const queue: string[] = [targetUrlObj.href];
+    const visited = new Set<string>();
 
-    // Wait for subsequent AJAX / background requests
-    const waitTime = Math.min(Math.max(Number(waitDuration) || 3000, 1000), 15000);
-    await page.waitForTimeout(waitTime);
+    const pageLimit = crawlMode === "multi" ? Math.min(Math.max(Number(maxPages) || 3, 2), 10) : 1;
+    let screenshotBase64: string | null = null;
+
+    while (queue.length > 0 && visited.size < pageLimit) {
+      const currentUrl = queue.shift()!;
+      if (visited.has(currentUrl)) continue;
+      visited.add(currentUrl);
+      currentNavigatingUrl = currentUrl;
+
+      const pageStart = Date.now();
+      let pageStatusCode = 200;
+      let pageTitle = "";
+
+      const beforeErrorsCount = Array.from(requestsMap.values()).filter((r) => r.isError).length;
+      const beforeConsoleCount = consoleLogs.filter((c) => c.type === "error").length;
+
+      try {
+        const response = await page.goto(currentUrl, {
+          waitUntil: "domcontentloaded",
+          timeout: 20000,
+        });
+        if (response) {
+          pageStatusCode = response.status();
+        }
+        pageTitle = await page.title().catch(() => "");
+      } catch (err: any) {
+        pageStatusCode = 0;
+        if (visited.size === 1) {
+          initialNavError = err.message;
+        }
+      }
+
+      // Wait brief duration for AJAX
+      const waitTime = Math.min(Math.max(Number(waitDuration) || 2500, 1000), 10000);
+      await page.waitForTimeout(crawlMode === "multi" ? 2000 : waitTime);
+
+      // Capture screenshot of the first page
+      if (visited.size === 1 && captureScreenshot) {
+        try {
+          const buffer = await page.screenshot({ fullPage: false, type: "jpeg", quality: 60 });
+          screenshotBase64 = buffer.toString("base64");
+        } catch {
+          screenshotBase64 = null;
+        }
+      }
+
+      // If multi-crawl, discover internal links on this page
+      if (crawlMode === "multi" && visited.size < pageLimit) {
+        try {
+          const links = await page.$$eval("a[href]", (anchors) =>
+            anchors.map((a) => (a as HTMLAnchorElement).href).filter(Boolean)
+          );
+
+          for (const rawHref of links) {
+            try {
+              const parsedHref = new URL(rawHref);
+              // Must match the same origin hostname
+              if (parsedHref.hostname === originHostname) {
+                // Ignore hash jumps and static media files
+                parsedHref.hash = "";
+                const cleanHref = parsedHref.href;
+                const ext = cleanHref.split("?")[0].split(".").pop()?.toLowerCase();
+                const ignoredExtensions = [
+                  "jpg", "jpeg", "png", "gif", "webp", "svg", "ico",
+                  "pdf", "zip", "tar", "gz", "mp4", "mp3", "css", "js"
+                ];
+
+                if (!ext || !ignoredExtensions.includes(ext)) {
+                  if (!visited.has(cleanHref) && !queue.includes(cleanHref)) {
+                    queue.push(cleanHref);
+                  }
+                }
+              }
+            } catch {
+              // skip invalid URL
+            }
+          }
+        } catch (crawlErr: any) {
+          console.warn("Failed collecting links on page:", crawlErr.message);
+        }
+      }
+
+      const afterErrorsCount = Array.from(requestsMap.values()).filter((r) => r.isError).length;
+      const afterConsoleCount = consoleLogs.filter((c) => c.type === "error").length;
+
+      crawledPages.push({
+        url: currentUrl,
+        pageTitle: pageTitle || currentUrl,
+        status: pageStatusCode,
+        durationMs: Date.now() - pageStart,
+        errorRequestsCount: afterErrorsCount - beforeErrorsCount,
+        consoleErrorsCount: afterConsoleCount - beforeConsoleCount,
+      });
+    }
 
     const finalUrl = page.url();
-    const pageTitle = await page.title().catch(() => "");
-
-    let screenshotBase64: string | null = null;
-    if (captureScreenshot) {
-      try {
-        const buffer = await page.screenshot({ fullPage: false, type: "jpeg", quality: 60 });
-        screenshotBase64 = buffer.toString("base64");
-      } catch {
-        screenshotBase64 = null;
-      }
-    }
+    const primaryTitle = crawledPages[0]?.pageTitle || (await page.title().catch(() => ""));
 
     // Convert map to array
     const allRequests = Array.from(requestsMap.values());
@@ -382,9 +480,9 @@ export async function POST(req: NextRequest) {
     const errorRequests = allRequests.filter((r) => r.isError);
     const consoleErrors = consoleLogs.filter((c) => c.type === "error");
 
-    // Calculate Health Score (100 is perfect)
+    // Calculate Health Score
     let healthScore = 100;
-    if (navError) healthScore -= 50;
+    if (initialNavError) healthScore -= 50;
     healthScore -= pageErrors.length * 20;
     healthScore -= errorRequests.filter((r) => r.status && r.status >= 500).length * 15;
     healthScore -= errorRequests.filter((r) => r.status && r.status >= 400 && r.status < 500).length * 5;
@@ -392,9 +490,9 @@ export async function POST(req: NextRequest) {
     healthScore -= consoleErrors.length * 5;
     healthScore = Math.max(0, Math.min(100, healthScore));
 
-    // Generate Diagnostic Summaries
+    // Generate Diagnostics
     const diagnostics = generateDiagnostics({
-      navError,
+      navError: initialNavError,
       errorRequests,
       consoleErrors,
       pageErrors,
@@ -408,7 +506,8 @@ export async function POST(req: NextRequest) {
         id: scanId,
         targetUrl: url,
         finalUrl,
-        pageTitle,
+        pageTitle: primaryTitle,
+        crawlMode,
         healthScore,
         navigationTimeMs: Date.now() - navStartTime,
         totalRequestsCount: allRequests.length,
@@ -417,6 +516,7 @@ export async function POST(req: NextRequest) {
         consoleErrorsCount: consoleErrors.length,
         pageErrorsCount: pageErrors.length,
         screenshot: screenshotBase64 ? `data:image/jpeg;base64,${screenshotBase64}` : null,
+        crawledPages,
       },
       diagnostics,
       requests: allRequests,
@@ -429,7 +529,7 @@ export async function POST(req: NextRequest) {
       id: scanId,
       targetUrl: url,
       finalUrl,
-      pageTitle,
+      pageTitle: primaryTitle,
       totalRequests: allRequests.length,
       errorRequests: errorRequests.length,
       consoleErrors: consoleErrors.length,

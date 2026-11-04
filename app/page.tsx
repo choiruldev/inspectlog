@@ -27,6 +27,8 @@ import {
   History,
   Share2,
   Trash2,
+  Globe,
+  Compass,
 } from "lucide-react";
 
 interface RequestItem {
@@ -46,6 +48,7 @@ interface RequestItem {
   failed: boolean;
   failureReason: string | null;
   isError: boolean;
+  pageOriginUrl?: string;
   timestamp: number;
 }
 
@@ -61,6 +64,15 @@ interface DiagnosticItem {
   recommendation: string;
 }
 
+interface CrawledPageItem {
+  url: string;
+  pageTitle: string;
+  status: number;
+  durationMs: number;
+  errorRequestsCount: number;
+  consoleErrorsCount: number;
+}
+
 interface InspectResult {
   id: string;
   meta: {
@@ -68,6 +80,7 @@ interface InspectResult {
     targetUrl: string;
     finalUrl: string;
     pageTitle: string;
+    crawlMode: "single" | "multi";
     healthScore: number;
     navigationTimeMs: number;
     totalRequestsCount: number;
@@ -76,6 +89,7 @@ interface InspectResult {
     consoleErrorsCount: number;
     pageErrorsCount: number;
     screenshot: string | null;
+    crawledPages?: CrawledPageItem[];
   };
   diagnostics: DiagnosticItem[];
   requests: RequestItem[];
@@ -84,12 +98,14 @@ interface InspectResult {
     type: string;
     text: string;
     location?: { url?: string; lineNumber?: number };
+    pageOriginUrl?: string;
     timestamp: number;
   }>;
   pageErrors: Array<{
     id: string;
     message: string;
     stack?: string;
+    pageOriginUrl?: string;
     timestamp: number;
   }>;
 }
@@ -108,7 +124,9 @@ interface HistoryItem {
 
 export default function Home() {
   const [url, setUrl] = useState("");
-  const [waitDuration, setWaitDuration] = useState(4000);
+  const [crawlMode, setCrawlMode] = useState<"single" | "multi">("single");
+  const [maxPages, setMaxPages] = useState(3);
+  const [waitDuration, setWaitDuration] = useState(3000);
   const [authMode, setAuthMode] = useState<"none" | "cookies" | "headers" | "loginFlow">("none");
   const [rawCookies, setRawCookies] = useState("");
   const [rawHeaders, setRawHeaders] = useState('{\n  "Authorization": "Bearer YOUR_TOKEN_HERE"\n}');
@@ -126,7 +144,7 @@ export default function Home() {
   const [result, setResult] = useState<InspectResult | null>(null);
 
   // Filter & detail state
-  const [activeTab, setActiveTab] = useState<"diagnostics" | "requests" | "console">("diagnostics");
+  const [activeTab, setActiveTab] = useState<"diagnostics" | "requests" | "console" | "crawled">("diagnostics");
   const [reqFilter, setReqFilter] = useState<"all" | "errors" | "api">("errors");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedReq, setSelectedReq] = useState<RequestItem | null>(null);
@@ -217,6 +235,8 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           url: url.startsWith("http") ? url : `https://${url}`,
+          crawlMode,
+          maxPages: crawlMode === "multi" ? maxPages : 1,
           waitDuration,
           authMode,
           rawCookies: authMode === "cookies" ? rawCookies : "",
@@ -232,8 +252,10 @@ export default function Home() {
       }
 
       setResult(data);
-      fetchHistory(); // refresh history list
-      if (data.diagnostics?.length > 0) {
+      fetchHistory();
+      if (crawlMode === "multi" && data.meta?.crawledPages?.length > 1) {
+        setActiveTab("crawled");
+      } else if (data.diagnostics?.length > 0) {
         setActiveTab("diagnostics");
       } else {
         setActiveTab("requests");
@@ -269,6 +291,7 @@ export default function Home() {
     const shareUrl = `${window.location.origin}/report/${result.id}`;
     const md = `### 🐛 Web & API Error Report
 **Target URL**: \`${result.meta.targetUrl}\`
+**Mode**: ${result.meta.crawlMode === "multi" ? `Crawler (${result.meta.crawledPages?.length || 1} Halaman)` : "Halaman Tunggal"}
 **Health Score**: ${result.meta.healthScore}/100
 **Total Error API**: ${result.meta.errorRequestsCount}
 **Console Errors**: ${result.meta.consoleErrorsCount}
@@ -311,7 +334,8 @@ ${result.diagnostics
       const matchUrl = req.url.toLowerCase().includes(search);
       const matchMethod = req.method.toLowerCase().includes(search);
       const matchStatus = String(req.status || "").includes(search);
-      return matchUrl || matchMethod || matchStatus;
+      const matchOrigin = req.pageOriginUrl?.toLowerCase().includes(search);
+      return matchUrl || matchMethod || matchStatus || matchOrigin;
     }
     return true;
   });
@@ -346,7 +370,7 @@ ${result.diagnostics
               </h1>
             </div>
             <p className="text-slate-400 text-sm mt-1">
-              Deep inspection: lemparan (payload), balasan (response), query parameters, dan console runtime error.
+              Deep inspection: lemparan (payload), balasan (response), query parameters, dan multi-page crawler.
             </p>
           </div>
 
@@ -387,30 +411,60 @@ ${result.diagnostics
         {/* Input Form Card */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
           <form onSubmit={handleInspect} className="space-y-4">
+            {/* Top row: URL + Mode + Inspect CTA */}
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
                 <input
                   type="text"
-                  placeholder="https://example.com/checkout atau https://my-app.internal/dashboard"
+                  placeholder="https://example.com atau https://my-store.com/checkout"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
                 />
               </div>
 
-              <div className="w-full sm:w-44 flex items-center bg-slate-950 border border-slate-700 rounded-lg px-3">
-                <span className="text-xs text-slate-400 mr-2">Wait:</span>
-                <select
-                  value={waitDuration}
-                  onChange={(e) => setWaitDuration(Number(e.target.value))}
-                  className="bg-transparent text-sm text-slate-200 focus:outline-none w-full py-3"
+              {/* Mode Switcher: Single vs Multi */}
+              <div className="flex items-center bg-slate-950 border border-slate-700 rounded-lg p-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setCrawlMode("single")}
+                  className={`px-3 py-2 rounded-md font-medium transition ${
+                    crawlMode === "single"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
                 >
-                  <option value={2000}>2 detik</option>
-                  <option value={4000}>4 detik (standar)</option>
-                  <option value={8000}>8 detik (SPA/Ajax)</option>
-                  <option value={12000}>12 detik (Lambat)</option>
-                </select>
+                  1 Halaman
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCrawlMode("multi")}
+                  className={`px-3 py-2 rounded-md font-medium transition flex items-center gap-1 ${
+                    crawlMode === "multi"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                  Crawler (Multi)
+                </button>
               </div>
+
+              {/* Max Pages selector if multi */}
+              {crawlMode === "multi" && (
+                <div className="w-full sm:w-36 flex items-center bg-slate-950 border border-slate-700 rounded-lg px-3">
+                  <span className="text-xs text-slate-400 mr-2">Limit:</span>
+                  <select
+                    value={maxPages}
+                    onChange={(e) => setMaxPages(Number(e.target.value))}
+                    className="bg-transparent text-sm text-slate-200 focus:outline-none w-full py-3"
+                  >
+                    <option value={3}>3 Halaman</option>
+                    <option value={5}>5 Halaman</option>
+                    <option value={10}>10 Halaman</option>
+                  </select>
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -420,7 +474,7 @@ ${result.diagnostics
                 {loading ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Inspecting...</span>
+                    <span>{crawlMode === "multi" ? "Crawling..." : "Inspecting..."}</span>
                   </>
                 ) : (
                   <>
@@ -568,6 +622,7 @@ ${result.diagnostics
               onClick={() => {
                 setUrl("https://httpbin.org/status/500");
                 setAuthMode("none");
+                setCrawlMode("single");
               }}
               className="text-slate-400 hover:text-indigo-400 bg-slate-800/80 px-2.5 py-1 rounded border border-slate-700"
             >
@@ -577,6 +632,7 @@ ${result.diagnostics
               onClick={() => {
                 setUrl("https://httpbin.org/status/401");
                 setAuthMode("none");
+                setCrawlMode("single");
               }}
               className="text-slate-400 hover:text-indigo-400 bg-slate-800/80 px-2.5 py-1 rounded border border-slate-700"
             >
@@ -586,10 +642,12 @@ ${result.diagnostics
               onClick={() => {
                 setUrl("https://jsonplaceholder.typicode.com");
                 setAuthMode("none");
+                setCrawlMode("multi");
+                setMaxPages(3);
               }}
               className="text-slate-400 hover:text-indigo-400 bg-slate-800/80 px-2.5 py-1 rounded border border-slate-700"
             >
-              Test Normal Site
+              Test Crawler Multi-Halaman
             </button>
           </div>
         </div>
@@ -610,7 +668,6 @@ ${result.diagnostics
           <div className="space-y-6">
             {/* Meta & Stats Overview */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              {/* Health Score */}
               <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
                 <span className="text-xs text-slate-400">Health Score</span>
                 <span
@@ -635,7 +692,9 @@ ${result.diagnostics
                   {result.meta.totalRequestsCount}
                 </span>
                 <span className="text-[11px] text-slate-500 mt-1">
-                  {result.meta.apiRequestsCount} Fetch/XHR
+                  {result.meta.crawledPages && result.meta.crawledPages.length > 1
+                    ? `Dari ${result.meta.crawledPages.length} halaman internal`
+                    : `${result.meta.apiRequestsCount} Fetch/XHR`}
                 </span>
               </div>
 
@@ -685,7 +744,7 @@ ${result.diagnostics
                     className="text-xs flex items-center justify-center gap-1 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 py-1.5 px-2.5 rounded-lg border border-indigo-500/40 transition"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    Shareable Page
+                    Shareable
                   </Link>
                 </div>
                 <span className="text-[10px] text-slate-500 mt-1 truncate" title={result.meta.finalUrl}>
@@ -697,7 +756,10 @@ ${result.diagnostics
             {/* Quick Action Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3">
               <span className="text-xs text-slate-400">
-                Laporan siap dibagikan untuk tim developer / QA.
+                Mode: <strong className="text-indigo-300">{result.meta.crawlMode === "multi" ? "Crawler Multi-Halaman" : "Halaman Tunggal"}</strong>
+                {result.meta.crawledPages && result.meta.crawledPages.length > 1 && (
+                  <span className="ml-1 text-slate-500">({result.meta.crawledPages.length} halaman dijelajahi)</span>
+                )}
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -712,6 +774,20 @@ ${result.diagnostics
 
             {/* Navigation Tabs */}
             <div className="flex border-b border-slate-800 gap-4">
+              {result.meta.crawledPages && result.meta.crawledPages.length > 1 && (
+                <button
+                  onClick={() => setActiveTab("crawled")}
+                  className={`pb-3 text-sm font-medium flex items-center gap-2 border-b-2 transition ${
+                    activeTab === "crawled"
+                      ? "border-indigo-500 text-indigo-400"
+                      : "border-transparent text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <Compass className="w-4 h-4" />
+                  Halaman Dijelajahi ({result.meta.crawledPages.length})
+                </button>
+              )}
+
               <button
                 onClick={() => setActiveTab("diagnostics")}
                 className={`pb-3 text-sm font-medium flex items-center gap-2 border-b-2 transition ${
@@ -748,6 +824,74 @@ ${result.diagnostics
                 Console Logs ({result.consoleLogs.length})
               </button>
             </div>
+
+            {/* TAB: CRAWLED PAGES (Multi-Page mode) */}
+            {activeTab === "crawled" && result.meta.crawledPages && (
+              <div className="space-y-4">
+                <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs font-mono">
+                      <thead className="bg-slate-950/80 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-800 font-sans">
+                        <tr>
+                          <th className="py-3 px-4">Status</th>
+                          <th className="py-3 px-4">URL Halaman Internal</th>
+                          <th className="py-3 px-4">Title</th>
+                          <th className="py-3 px-4">Load Time</th>
+                          <th className="py-3 px-4">API Errors</th>
+                          <th className="py-3 px-4 text-right">Filter Request</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60">
+                        {result.meta.crawledPages.map((page, idx) => (
+                          <tr key={idx} className="hover:bg-slate-800/50 transition">
+                            <td className="py-3 px-4">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                  page.status >= 400 || page.status === 0
+                                    ? "bg-red-900/60 text-red-300 border border-red-800"
+                                    : "bg-emerald-900/40 text-emerald-300 border border-emerald-800"
+                                }`}
+                              >
+                                {page.status || "ERR"}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 max-w-sm truncate text-slate-200">
+                              <span title={page.url}>{page.url}</span>
+                            </td>
+                            <td className="py-3 px-4 max-w-xs truncate text-slate-400 font-sans">
+                              {page.pageTitle}
+                            </td>
+                            <td className="py-3 px-4 text-slate-400">
+                              {(page.durationMs / 1000).toFixed(2)}s
+                            </td>
+                            <td className="py-3 px-4">
+                              {page.errorRequestsCount > 0 ? (
+                                <span className="text-red-400 font-bold bg-red-950/80 px-2 py-0.5 rounded border border-red-900">
+                                  {page.errorRequestsCount} error
+                                </span>
+                              ) : (
+                                <span className="text-emerald-400">0 error</span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right font-sans">
+                              <button
+                                onClick={() => {
+                                  setSearchTerm(page.url);
+                                  setActiveTab("requests");
+                                }}
+                                className="bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2.5 py-1 rounded text-[11px] transition"
+                              >
+                                Lihat Traffic
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* TAB 1: DIAGNOSTICS */}
             {activeTab === "diagnostics" && (
@@ -965,6 +1109,11 @@ ${result.diagnostics
                                 </td>
                                 <td className="py-3 px-4 max-w-md truncate text-slate-300">
                                   <span title={req.url}>{req.url}</span>
+                                  {req.pageOriginUrl && (
+                                    <span className="block text-[10px] text-slate-500 truncate mt-0.5">
+                                      page: {req.pageOriginUrl}
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="py-3 px-4 text-slate-400">
                                   <span className="bg-slate-800 px-2 py-0.5 rounded text-[10px]">

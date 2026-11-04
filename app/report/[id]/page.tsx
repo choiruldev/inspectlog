@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   Check,
   CheckCircle,
+  Compass,
   Copy,
   ExternalLink,
   Eye,
@@ -56,6 +57,15 @@ interface DiagnosticItem {
   recommendation: string;
 }
 
+interface CrawledPageItem {
+  url: string;
+  pageTitle: string;
+  status: number;
+  durationMs: number;
+  errorRequestsCount: number;
+  consoleErrorsCount: number;
+}
+
 interface ScanData {
   id: string;
   meta: {
@@ -63,6 +73,7 @@ interface ScanData {
     targetUrl: string;
     finalUrl: string;
     pageTitle: string;
+    crawlMode?: "single" | "multi";
     healthScore: number;
     navigationTimeMs: number;
     totalRequestsCount: number;
@@ -71,6 +82,7 @@ interface ScanData {
     consoleErrorsCount: number;
     pageErrorsCount: number;
     screenshot: string | null;
+    crawledPages?: CrawledPageItem[];
   };
   diagnostics: DiagnosticItem[];
   requests: RequestItem[];
@@ -99,7 +111,7 @@ function ReportContent() {
   const [scan, setScan] = useState<ScanData | null>(null);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<"diagnostics" | "requests" | "console">("diagnostics");
+  const [activeTab, setActiveTab] = useState<"diagnostics" | "requests" | "console" | "crawled">("diagnostics");
   const [reqFilter, setReqFilter] = useState<"all" | "errors" | "api">("errors");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedReq, setSelectedReq] = useState<RequestItem | null>(null);
@@ -348,6 +360,18 @@ ${scan.diagnostics
 
         {/* Tabs */}
         <div className="flex border-b border-slate-800 gap-4">
+          {scan.meta.crawledPages && scan.meta.crawledPages.length > 1 && (
+            <button
+              onClick={() => setActiveTab("crawled")}
+              className={`pb-3 text-sm font-medium flex items-center gap-2 border-b-2 transition ${
+                activeTab === "crawled" ? "border-indigo-500 text-indigo-400" : "border-transparent text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Compass className="w-4 h-4" />
+              Halaman Dijelajahi ({scan.meta.crawledPages.length})
+            </button>
+          )}
+
           <button
             onClick={() => setActiveTab("diagnostics")}
             className={`pb-3 text-sm font-medium flex items-center gap-2 border-b-2 transition ${
@@ -378,6 +402,74 @@ ${scan.diagnostics
             Console Error Logs ({scan.consoleLogs.length})
           </button>
         </div>
+
+        {/* TAB: CRAWLED PAGES */}
+        {activeTab === "crawled" && scan.meta.crawledPages && (
+          <div className="space-y-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-slate-950/80 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-800 font-sans">
+                    <tr>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4">URL Halaman Internal</th>
+                      <th className="py-3 px-4">Title</th>
+                      <th className="py-3 px-4">Load Time</th>
+                      <th className="py-3 px-4">API Errors</th>
+                      <th className="py-3 px-4 text-right">Filter Request</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {scan.meta.crawledPages.map((page, idx) => (
+                      <tr key={idx} className="hover:bg-slate-800/50 transition">
+                        <td className="py-3 px-4">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                              page.status >= 400 || page.status === 0
+                                ? "bg-red-900/60 text-red-300 border border-red-800"
+                                : "bg-emerald-900/40 text-emerald-300 border border-emerald-800"
+                            }`}
+                          >
+                            {page.status || "ERR"}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 max-w-sm truncate text-slate-200">
+                          <span title={page.url}>{page.url}</span>
+                        </td>
+                        <td className="py-3 px-4 max-w-xs truncate text-slate-400 font-sans">
+                          {page.pageTitle}
+                        </td>
+                        <td className="py-3 px-4 text-slate-400">
+                          {(page.durationMs / 1000).toFixed(2)}s
+                        </td>
+                        <td className="py-3 px-4">
+                          {page.errorRequestsCount > 0 ? (
+                            <span className="text-red-400 font-bold bg-red-950/80 px-2 py-0.5 rounded border border-red-900">
+                              {page.errorRequestsCount} error
+                            </span>
+                          ) : (
+                            <span className="text-emerald-400">0 error</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right font-sans">
+                          <button
+                            onClick={() => {
+                              setSearchTerm(page.url);
+                              setActiveTab("requests");
+                            }}
+                            className="bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2.5 py-1 rounded text-[11px] transition"
+                          >
+                            Lihat Traffic
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* TAB 1: DIAGNOSTICS */}
         {activeTab === "diagnostics" && (
