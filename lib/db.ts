@@ -60,6 +60,35 @@ db.exec(`
     created_at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_monitor_logs_created_at ON monitor_logs(created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT DEFAULT 'free', -- 'free' | 'pro'
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+  CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS transactions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    provider TEXT NOT NULL, -- 'midtrans' | 'stripe'
+    status TEXT DEFAULT 'pending', -- 'pending' | 'paid' | 'failed'
+    payment_url TEXT,
+    created_at TEXT NOT NULL,
+    paid_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
 `);
 
 export interface ScanRecord {
@@ -251,4 +280,124 @@ export function deleteMonitor(id: string) {
   const res = stmt.run(id);
   return (res.changes as number) > 0;
 }
+
+// User & Auth Management
+export interface UserRecord {
+  id: string;
+  email: string;
+  name: string;
+  password_hash: string;
+  role: "free" | "pro";
+  created_at: string;
+}
+
+export function createUser(email: string, name: string, passwordHash: string): UserRecord {
+  const id = `usr_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+  const now = new Date().toISOString();
+  const stmt = db.prepare(`
+    INSERT INTO users (id, email, name, password_hash, role, created_at)
+    VALUES (?, ?, ?, ?, 'free', ?)
+  `);
+  stmt.run(id, email.toLowerCase(), name, passwordHash, now);
+  return { id, email: email.toLowerCase(), name, password_hash: passwordHash, role: "free", created_at: now };
+}
+
+export function findUserByEmail(email: string): UserRecord | null {
+  const stmt = db.prepare(`SELECT * FROM users WHERE email = ? LIMIT 1`);
+  return (stmt.get(email.toLowerCase()) as UserRecord) || null;
+}
+
+export function findUserById(id: string): UserRecord | null {
+  const stmt = db.prepare(`SELECT * FROM users WHERE id = ? LIMIT 1`);
+  return (stmt.get(id) as UserRecord) || null;
+}
+
+export function updateUserRole(userId: string, role: "free" | "pro") {
+  const stmt = db.prepare(`UPDATE users SET role = ? WHERE id = ?`);
+  stmt.run(role, userId);
+}
+
+// Session Management
+export function createSession(userId: string, expiresDays = 30): string {
+  const token = `sess_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 12)}`;
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + expiresDays * 24 * 60 * 60 * 1000).toISOString();
+
+  const stmt = db.prepare(`
+    INSERT INTO sessions (token, user_id, expires_at, created_at)
+    VALUES (?, ?, ?, ?)
+  `);
+  stmt.run(token, userId, expiresAt, now.toISOString());
+  return token;
+}
+
+export function getUserFromSession(token: string): UserRecord | null {
+  const stmt = db.prepare(`
+    SELECT u.* FROM users u
+    JOIN sessions s ON u.id = s.user_id
+    WHERE s.token = ? AND s.expires_at > ?
+    LIMIT 1
+  `);
+  return (stmt.get(token, new Date().toISOString()) as UserRecord) || null;
+}
+
+export function deleteSession(token: string) {
+  const stmt = db.prepare(`DELETE FROM sessions WHERE token = ?`);
+  stmt.run(token);
+}
+
+// Payment & Transactions
+export interface TransactionRecord {
+  id: string;
+  user_id: string;
+  amount: number;
+  provider: "midtrans" | "stripe";
+  status: "pending" | "paid" | "failed";
+  payment_url: string | null;
+  created_at: string;
+  paid_at: string | null;
+}
+
+export function createTransaction(data: {
+  id: string;
+  userId: string;
+  amount: number;
+  provider: "midtrans" | "stripe";
+  paymentUrl?: string;
+}): TransactionRecord {
+  const now = new Date().toISOString();
+  const stmt = db.prepare(`
+    INSERT INTO transactions (id, user_id, amount, provider, status, payment_url, created_at)
+    VALUES (?, ?, ?, ?, 'pending', ?, ?)
+  `);
+  stmt.run(data.id, data.userId, data.amount, data.provider, data.paymentUrl || null, now);
+  return {
+    id: data.id,
+    user_id: data.userId,
+    amount: data.amount,
+    provider: data.provider,
+    status: "pending",
+    payment_url: data.paymentUrl || null,
+    created_at: now,
+    paid_at: null,
+  };
+}
+
+export function markTransactionPaid(transactionId: string) {
+  const now = new Date().toISOString();
+  const stmt = db.prepare(`
+    UPDATE transactions
+    SET status = 'paid', paid_at = ?
+    WHERE id = ?
+  `);
+  stmt.run(now, transactionId);
+
+  // Upgrade the user to 'pro'
+  const txStmt = db.prepare(`SELECT user_id FROM transactions WHERE id = ? LIMIT 1`);
+  const row = txStmt.get(transactionId) as { user_id: string } | undefined;
+  if (row) {
+    updateUserRole(row.user_id, "pro");
+  }
+}
+
 

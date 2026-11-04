@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "InspectLog - Web & API Error Inspector",
+  "version": "1.0.0",
+  "description": "Inspect lemparan payload, balasan response API, dan console error langsung dari tab browser aktif (termasuk localhost & website ber-login).",
+  "permissions": [
+    "activeTab",
+    "debugger",
+    "storage",
+    "tabs"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "InspectLog Companion"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

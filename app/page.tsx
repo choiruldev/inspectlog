@@ -32,6 +32,10 @@ import {
   MessageSquare,
   Sparkles,
   Bell,
+  User,
+  Bot,
+  LogOut,
+  Lock,
 } from "lucide-react";
 
 interface RequestItem {
@@ -197,6 +201,100 @@ export default function Home() {
     }
   };
 
+  // User Auth state
+  const [currentUser, setCurrentUser] = useState<{ id: string; email: string; name: string; role: "free" | "pro" } | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authTab, setAuthTab] = useState<"login" | "register">("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authName, setAuthName] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // Gemini AI Analysis state
+  const [aiDiagnoses, setAiDiagnoses] = useState<Record<number, any>>({});
+  const [loadingAiIdx, setLoadingAiIdx] = useState<number | null>(null);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      const data = await res.json();
+      if (data.success && data.user) {
+        setCurrentUser(data.user);
+      } else {
+        setCurrentUser(null);
+      }
+    } catch {
+      // silent
+    }
+  };
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthSubmitting(true);
+    setAuthError(null);
+    try {
+      const endpoint = authTab === "login" ? "/api/auth/login" : "/api/auth/register";
+      const payload = authTab === "login"
+        ? { email: authEmail, password: authPassword }
+        : { email: authEmail, name: authName, password: authPassword };
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Gagal melakukan autentikasi.");
+      }
+
+      setCurrentUser(data.user);
+      setShowAuthModal(false);
+      setAuthPassword("");
+    } catch (err: any) {
+      setAuthError(err.message || "Terjadi kesalahan.");
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setCurrentUser(null);
+    } catch {
+      // silent
+    }
+  };
+
+  const requestAiDiagnosis = async (idx: number, item: DiagnosticItem) => {
+    setLoadingAiIdx(idx);
+    try {
+      const res = await fetch("/api/inspect/ai-analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: item.endpoint || url,
+          method: "POST/GET",
+          status: item.status,
+          payload: item.payload,
+          response: item.response,
+          failureReason: item.details,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.diagnosis) {
+        setAiDiagnoses((prev) => ({ ...prev, [idx]: data.diagnosis }));
+      }
+    } catch {
+      alert("Gagal menghubungi AI Analyzer.");
+    } finally {
+      setLoadingAiIdx(null);
+    }
+  };
+
   const fetchHistory = async () => {
     setLoadingHistory(true);
     try {
@@ -214,6 +312,7 @@ export default function Home() {
 
   useEffect(() => {
     fetchHistory();
+    fetchCurrentUser();
   }, []);
 
   const loadPastScan = async (scanId: string) => {
@@ -437,6 +536,35 @@ ${result.diagnostics
               <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
               Feedback (Beta)
             </button>
+
+            {currentUser ? (
+              <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-xs">
+                <span className="font-semibold text-white">{currentUser.name}</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                    currentUser.role === "pro"
+                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                      : "bg-slate-800 text-slate-400"
+                  }`}
+                >
+                  {currentUser.role}
+                </span>
+                <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 p-0.5 ml-1" title="Logout">
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setAuthTab("login");
+                  setShowAuthModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 px-3 py-2 rounded-lg text-xs font-medium transition"
+              >
+                <User className="w-3.5 h-3.5 text-indigo-400" />
+                Masuk / Daftar
+              </button>
+            )}
 
             {result && (
               <>
@@ -1038,6 +1166,49 @@ ${result.diagnostics
                         </span>
                         {item.recommendation}
                       </div>
+
+                      {/* Gemini AI Deep Diagnosis Card */}
+                      {aiDiagnoses[idx] ? (
+                        <div className="bg-slate-950 border border-indigo-500/40 rounded-xl p-4 space-y-3">
+                          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                            <div className="flex items-center gap-1.5 text-indigo-300 font-bold text-xs">
+                              <Bot className="w-4 h-4 text-indigo-400" />
+                              <span>Diagnosa AI ({aiDiagnoses[idx].aiEngine})</span>
+                            </div>
+                            <span className="text-[10px] bg-indigo-950 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800">
+                              Pihak Bermasalah: {aiDiagnoses[idx].sideFault} ({aiDiagnoses[idx].confidence}% Akurasi)
+                            </span>
+                          </div>
+
+                          <div className="text-xs text-slate-200">
+                            <strong>Penyebab Utama:</strong> {aiDiagnoses[idx].rootCause}
+                          </div>
+
+                          <div className="text-xs text-indigo-200">
+                            <strong>Rekomendasi Teknisi:</strong> {aiDiagnoses[idx].recommendation}
+                          </div>
+
+                          {aiDiagnoses[idx].suggestedFixCode && (
+                            <div>
+                              <span className="text-[11px] font-bold text-slate-400 block mb-1">Rekomendasi Kode Perbaikan:</span>
+                              <pre className="bg-slate-900 border border-slate-800 rounded p-2.5 font-mono text-[11px] text-emerald-300 overflow-x-auto">
+                                {aiDiagnoses[idx].suggestedFixCode}
+                              </pre>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex justify-end">
+                          <button
+                            onClick={() => requestAiDiagnosis(idx, item)}
+                            disabled={loadingAiIdx === idx}
+                            className="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5"
+                          >
+                            <Bot className={`w-3.5 h-3.5 ${loadingAiIdx === idx ? "animate-spin" : ""}`} />
+                            {loadingAiIdx === idx ? "Sedang Dianalisis AI..." : "Tanya AI Gemini (Diagnosa Pintar & Kode Solusi)"}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
@@ -1673,6 +1844,103 @@ ${result.diagnostics
                   </div>
                 </form>
               )}
+            </div>
+          </div>
+        )}
+        {/* Modal: User Auth (Login & Register) */}
+        {showAuthModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-6 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <User className="w-5 h-5 text-indigo-400" />
+                  <h3 className="font-bold text-base text-white">
+                    {authTab === "login" ? "Masuk ke InspectLog" : "Daftar Akun Baru"}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowAuthModal(false)}
+                  className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex border-b border-slate-800 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setAuthTab("login")}
+                  className={`flex-1 py-2 font-medium border-b-2 transition ${
+                    authTab === "login" ? "border-indigo-500 text-indigo-400" : "border-transparent text-slate-400"
+                  }`}
+                >
+                  Login
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthTab("register")}
+                  className={`flex-1 py-2 font-medium border-b-2 transition ${
+                    authTab === "register" ? "border-indigo-500 text-indigo-400" : "border-transparent text-slate-400"
+                  }`}
+                >
+                  Register
+                </button>
+              </div>
+
+              {authError && (
+                <div className="p-2.5 bg-red-950/60 border border-red-800 rounded-lg text-xs text-red-300">
+                  {authError}
+                </div>
+              )}
+
+              <form onSubmit={handleAuthSubmit} className="space-y-3 text-xs">
+                {authTab === "register" && (
+                  <div>
+                    <label className="text-slate-300 block mb-1 font-medium">Nama Lengkap *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Irul Developer"
+                      value={authName}
+                      onChange={(e) => setAuthName(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-slate-300 block mb-1 font-medium">Email *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="nama@email.com"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-300 block mb-1 font-medium">Password *</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={authSubmitting}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold py-2.5 rounded-lg text-xs transition shadow-md mt-2"
+                >
+                  {authSubmitting ? "Memproses..." : authTab === "login" ? "Masuk Sekarang" : "Buat Akun Gratis"}
+                </button>
+              </form>
             </div>
           </div>
         )}

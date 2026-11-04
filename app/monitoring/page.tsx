@@ -609,8 +609,22 @@ export default function MonitoringPage() {
                   </ul>
 
                   <button
-                    onClick={() => {
-                      alert("Integrasi Checkout Payment Gateway (Midtrans / Stripe / LemonSqueezy) siap dihubungkan!");
+                    onClick={async () => {
+                      try {
+                        const res = await fetch("/api/payment/create", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ provider: "midtrans" }),
+                        });
+                        const data = await res.json();
+                        if (data.success && data.paymentUrl) {
+                          window.location.href = data.paymentUrl;
+                        } else {
+                          alert(data.error || "Gagal membuat invoice. Pastikan Anda sudah login.");
+                        }
+                      } catch {
+                        alert("Gagal menghubungi server pembayaran.");
+                      }
                     }}
                     className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold transition shadow-md mt-4"
                   >

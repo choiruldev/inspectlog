@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>InspectLog Companion</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #090d16;
+      color: #f1f5f9;
+      padding: 16px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 12px;
+      margin-bottom: 12px;
+    }
+    .logo {
+      width: 24px;
+      height: 24px;
+      background: #4f46e5;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    h1 { font-size: 14px; font-weight: bold; color: #fff; }
+    .status-badge {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-left: auto;
+    }
+    .status-idle { background: #1e293b; color: #94a3b8; }
+    .status-rec { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
+    .url-box {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 11px;
+      color: #94a3b8;
+      word-break: break-all;
+      margin-bottom: 12px;
+      font-family: monospace;
+    }
+    .btn {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-record { background: #4f46e5; color: #fff; }
+    .btn-record:hover { background: #4338ca; }
+    .btn-stop { background: #dc2626; color: #fff; }
+    .btn-stop:hover { background: #b91c1c; }
+    .btn-secondary {
+      background: #1e293b;
+      color: #cbd5e1;
+      margin-top: 8px;
+      font-weight: 500;
+    }
+    .btn-secondary:hover { background: #334155; }
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .stat-card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      padding: 8px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-num { font-size: 16px; font-weight: bold; }
+    .stat-label { font-size: 10px; color: #64748b; }
+    .footer {
+      margin-top: 12px;
+      font-size: 10px;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">🔍</div>
+    <h1>InspectLog</h1>
+    <span id="badge" class="status-badge status-idle">IDLE</span>
+  </div>
+
+  <div id="urlText" class="url-box">Memeriksa tab aktif...</div>
+
+  <button id="toggleBtn" class="btn btn-record">
+    <span>● Mulai Rekam Traffic</span>
+  </button>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div id="reqCount" class="stat-num" style="color:#38bdf8;">0</div>
+      <div class="stat-label">Total Requests</div>
+    </div>
+    <div class="stat-card">
+      <div id="errCount" class="stat-num" style="color:#f87171;">0</div>
+      <div class="stat-label">API Error / 500</div>
+    </div>
+  </div>
+
+  <button id="exportBtn" class="btn btn-secondary" style="display:none;">
+    <span>💾 Download JSON Report</span>
+  </button>
+
+  <div class="footer">
+    Works on localhost, VPN, & authenticated websites.
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
