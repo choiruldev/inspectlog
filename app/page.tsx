@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   CheckCircle,
@@ -23,11 +24,16 @@ import {
   X,
   Search,
   Filter,
+  History,
+  Share2,
+  Trash2,
 } from "lucide-react";
 
 interface RequestItem {
   id: string;
   url: string;
+  pathname: string;
+  queryParams?: Record<string, string>;
   method: string;
   resourceType: string;
   requestHeaders: Record<string, string>;
@@ -56,10 +62,13 @@ interface DiagnosticItem {
 }
 
 interface InspectResult {
+  id: string;
   meta: {
+    id: string;
     targetUrl: string;
     finalUrl: string;
     pageTitle: string;
+    healthScore: number;
     navigationTimeMs: number;
     totalRequestsCount: number;
     apiRequestsCount: number;
@@ -83,6 +92,18 @@ interface InspectResult {
     stack?: string;
     timestamp: number;
   }>;
+}
+
+interface HistoryItem {
+  id: string;
+  target_url: string;
+  final_url: string;
+  page_title: string;
+  created_at: string;
+  total_requests: number;
+  error_requests: number;
+  console_errors: number;
+  navigation_time_ms: number;
 }
 
 export default function Home() {
@@ -109,9 +130,74 @@ export default function Home() {
   const [reqFilter, setReqFilter] = useState<"all" | "errors" | "api">("errors");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedReq, setSelectedReq] = useState<RequestItem | null>(null);
+  const [detailTab, setDetailTab] = useState<"payload" | "response" | "params" | "headers">("payload");
+
   const [copiedPayload, setCopiedPayload] = useState(false);
   const [copiedResponse, setCopiedResponse] = useState(false);
+  const [copiedBugReport, setCopiedBugReport] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [showScreenshot, setShowScreenshot] = useState(false);
+
+  // History state
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyList, setHistoryList] = useState<HistoryItem[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const fetchHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await fetch("/api/scans");
+      const data = await res.json();
+      if (data.success) {
+        setHistoryList(data.scans || []);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const loadPastScan = async (scanId: string) => {
+    setLoading(true);
+    setErrorMsg(null);
+    setShowHistory(false);
+    try {
+      const res = await fetch(`/api/scans/${scanId}`);
+      const data = await res.json();
+      if (!data.success || !data.scan?.data) {
+        throw new Error(data.error || "Gagal memuat scan lama.");
+      }
+      setResult(data.scan.data);
+      setUrl(data.scan.data.meta.targetUrl);
+      if (data.scan.data.diagnostics?.length > 0) {
+        setActiveTab("diagnostics");
+      } else {
+        setActiveTab("requests");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Gagal memuat data scan.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deletePastScan = async (e: React.MouseEvent, scanId: string) => {
+    e.stopPropagation();
+    try {
+      await fetch(`/api/scans/${scanId}`, { method: "DELETE" });
+      setHistoryList((prev) => prev.filter((item) => item.id !== scanId));
+      if (result?.id === scanId) {
+        setResult(null);
+      }
+    } catch {
+      // silent
+    }
+  };
 
   const handleInspect = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -146,6 +232,7 @@ export default function Home() {
       }
 
       setResult(data);
+      fetchHistory(); // refresh history list
       if (data.diagnostics?.length > 0) {
         setActiveTab("diagnostics");
       } else {
@@ -169,6 +256,40 @@ export default function Home() {
     }
   };
 
+  const copyShareLink = () => {
+    if (!result?.id) return;
+    const shareUrl = `${window.location.origin}/report/${result.id}`;
+    navigator.clipboard.writeText(shareUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const copyMarkdownBugReport = () => {
+    if (!result) return;
+    const shareUrl = `${window.location.origin}/report/${result.id}`;
+    const md = `### 🐛 Web & API Error Report
+**Target URL**: \`${result.meta.targetUrl}\`
+**Health Score**: ${result.meta.healthScore}/100
+**Total Error API**: ${result.meta.errorRequestsCount}
+**Console Errors**: ${result.meta.consoleErrorsCount}
+
+---
+#### 🚨 Diagnosa Masalah:
+${result.diagnostics
+  .map(
+    (d, i) =>
+      `${i + 1}. **[${d.severity}] ${d.title}** (Status: \`${d.status || "-"}\`)\n   - Endpoint: \`${d.endpoint || "-"}\`\n   - Detail: ${d.details}\n   - Rekomendasi: ${d.recommendation}`
+  )
+  .join("\n\n")}
+
+---
+*Laporan lengkap & payload: ${shareUrl}*
+`;
+    navigator.clipboard.writeText(md);
+    setCopiedBugReport(true);
+    setTimeout(() => setCopiedBugReport(false), 2500);
+  };
+
   const exportReport = () => {
     if (!result) return;
     const blob = new Blob([JSON.stringify(result, null, 2)], {
@@ -177,7 +298,7 @@ export default function Home() {
     const downloadUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = downloadUrl;
-    a.download = `inspect-report-${Date.now()}.json`;
+    a.download = `inspect-report-${result.id || Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(downloadUrl);
   };
@@ -195,6 +316,21 @@ export default function Home() {
     return true;
   });
 
+  const getMethodBadgeClass = (method: string) => {
+    switch (method.toUpperCase()) {
+      case "GET":
+        return "text-blue-400 bg-blue-950/40 border-blue-800/60";
+      case "POST":
+        return "text-emerald-400 bg-emerald-950/40 border-emerald-800/60";
+      case "PUT":
+        return "text-amber-400 bg-amber-950/40 border-amber-800/60";
+      case "DELETE":
+        return "text-rose-400 bg-rose-950/40 border-rose-800/60";
+      default:
+        return "text-slate-300 bg-slate-800 border-slate-700";
+    }
+  };
+
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 font-sans">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -210,22 +346,46 @@ export default function Home() {
               </h1>
             </div>
             <p className="text-slate-400 text-sm mt-1">
-              Deep inspection: pantau lemparan (payload), balasan (response), status code, dan console runtime error.
+              Deep inspection: lemparan (payload), balasan (response), query parameters, dan console runtime error.
             </p>
           </div>
-          {result && (
+
+          <div className="flex items-center gap-2">
             <button
-              onClick={exportReport}
-              className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm font-medium border border-slate-700 transition"
+              onClick={() => {
+                fetchHistory();
+                setShowHistory(true);
+              }}
+              className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 px-3.5 py-2 rounded-lg text-xs font-medium border border-slate-700 transition"
             >
-              <FileJson className="w-4 h-4 text-indigo-400" />
-              Export JSON Report
+              <History className="w-4 h-4 text-indigo-400" />
+              Riwayat ({historyList.length})
             </button>
-          )}
+
+            {result && (
+              <>
+                <button
+                  onClick={copyShareLink}
+                  className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 px-3.5 py-2 rounded-lg text-xs font-medium border border-slate-700 transition"
+                >
+                  {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4 text-indigo-400" />}
+                  {copiedLink ? "Link Disalin" : "Share Link"}
+                </button>
+
+                <button
+                  onClick={exportReport}
+                  className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 px-3.5 py-2 rounded-lg text-xs font-medium border border-slate-700 transition"
+                >
+                  <FileJson className="w-4 h-4 text-indigo-400" />
+                  JSON
+                </button>
+              </>
+            )}
+          </div>
         </header>
 
         {/* Input Form Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
           <form onSubmit={handleInspect} className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
@@ -255,7 +415,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800/50 text-white font-medium px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition min-w-[140px]"
+                className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800/50 text-white font-medium px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition min-w-[140px] shadow-lg shadow-indigo-600/20"
               >
                 {loading ? (
                   <>
@@ -338,7 +498,7 @@ export default function Home() {
               {authMode === "cookies" && (
                 <div className="mt-3 p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs space-y-2">
                   <div className="text-slate-300 font-medium">
-                    Masukkan Cookies (Bisa format string <code>session_id=abc; token=123</code> atau format JSON cookie export):
+                    Masukkan Cookies (string <code>session_id=abc; token=123</code> atau JSON array):
                   </div>
                   <textarea
                     rows={3}
@@ -403,7 +563,7 @@ export default function Home() {
 
           {/* Quick Preset Buttons */}
           <div className="flex flex-wrap items-center gap-2 pt-2 text-xs text-slate-500">
-            <span>Contoh uji cepat:</span>
+            <span>Uji coba cepat:</span>
             <button
               onClick={() => {
                 setUrl("https://httpbin.org/status/500");
@@ -450,6 +610,25 @@ export default function Home() {
           <div className="space-y-6">
             {/* Meta & Stats Overview */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {/* Health Score */}
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                <span className="text-xs text-slate-400">Health Score</span>
+                <span
+                  className={`text-3xl font-extrabold mt-1 ${
+                    result.meta.healthScore >= 80
+                      ? "text-emerald-400"
+                      : result.meta.healthScore >= 50
+                      ? "text-amber-400"
+                      : "text-red-400"
+                  }`}
+                >
+                  {result.meta.healthScore}/100
+                </span>
+                <span className="text-[11px] text-slate-500 mt-1">
+                  {result.meta.healthScore >= 80 ? "Normal" : "Perlu Perbaikan"}
+                </span>
+              </div>
+
               <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
                 <span className="text-xs text-slate-400">Total Requests</span>
                 <span className="text-2xl font-bold text-white mt-1">
@@ -475,7 +654,7 @@ export default function Home() {
               </div>
 
               <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-xs text-slate-400">Console Errors</span>
+                <span className="text-xs text-slate-400">Console & Crashes</span>
                 <span
                   className={`text-2xl font-bold mt-1 ${
                     result.meta.consoleErrorsCount > 0 ? "text-amber-400" : "text-slate-300"
@@ -488,32 +667,46 @@ export default function Home() {
                 </span>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-xs text-slate-400">Navigation Time</span>
-                <span className="text-2xl font-bold text-slate-200 mt-1">
-                  {(result.meta.navigationTimeMs / 1000).toFixed(2)}s
-                </span>
-                <span className="text-[11px] text-slate-500 mt-1 truncate" title={result.meta.pageTitle}>
-                  {result.meta.pageTitle || "No title"}
-                </span>
-              </div>
-
               <div className="col-span-2 md:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-xs text-slate-400">Page Screenshot</span>
-                {result.meta.screenshot ? (
-                  <button
-                    onClick={() => setShowScreenshot(true)}
-                    className="mt-2 text-xs flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 py-1.5 px-3 rounded-lg border border-slate-700 transition"
+                <span className="text-xs text-slate-400">Screenshot & Report</span>
+                <div className="flex items-center gap-1.5 mt-2">
+                  {result.meta.screenshot && (
+                    <button
+                      onClick={() => setShowScreenshot(true)}
+                      className="text-xs flex items-center justify-center gap-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 py-1.5 px-2.5 rounded-lg border border-slate-700 transition"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Visual
+                    </button>
+                  )}
+                  <Link
+                    href={`/report/${result.id}`}
+                    target="_blank"
+                    className="text-xs flex items-center justify-center gap-1 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 py-1.5 px-2.5 rounded-lg border border-indigo-500/40 transition"
                   >
-                    <Eye className="w-3.5 h-3.5" />
-                    Lihat Tampilan
-                  </button>
-                ) : (
-                  <span className="text-xs text-slate-500 mt-2">Tidak tersedia</span>
-                )}
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Shareable Page
+                  </Link>
+                </div>
                 <span className="text-[10px] text-slate-500 mt-1 truncate" title={result.meta.finalUrl}>
                   {result.meta.finalUrl}
                 </span>
+              </div>
+            </div>
+
+            {/* Quick Action Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3">
+              <span className="text-xs text-slate-400">
+                Laporan siap dibagikan untuk tim developer / QA.
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={copyMarkdownBugReport}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-indigo-300 px-3 py-1.5 rounded-lg border border-slate-700 transition"
+                >
+                  {copiedBugReport ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedBugReport ? "Disalin ke Clipboard!" : "Salin Format Bug Dev (Markdown)"}
+                </button>
               </div>
             </div>
 
@@ -564,7 +757,7 @@ export default function Home() {
                     <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
                     <h3 className="text-lg font-semibold text-white">Tidak Ditemukan Error Kritis</h3>
                     <p className="text-sm text-slate-400 max-w-md mx-auto mt-1">
-                      Semua request API dan eksekusi skrip halaman berjalan normal tanpa HTTP 4xx/5xx atau uncaught exception.
+                      Semua request API dan skrip halaman berjalan normal tanpa HTTP 4xx/5xx atau runtime crash.
                     </p>
                   </div>
                 ) : (
@@ -722,7 +915,7 @@ export default function Home() {
                       <tbody className="divide-y divide-slate-800/60 font-mono">
                         {filteredRequests.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="py-8 text-center text-slate-500">
+                            <td colSpan={6} className="py-8 text-center text-slate-500 font-sans">
                               Tidak ada request yang cocok dengan filter.
                             </td>
                           </tr>
@@ -735,7 +928,10 @@ export default function Home() {
                                 className={`hover:bg-slate-800/50 transition cursor-pointer ${
                                   isFail ? "bg-red-950/10" : ""
                                 }`}
-                                onClick={() => setSelectedReq(req)}
+                                onClick={() => {
+                                  setSelectedReq(req);
+                                  setDetailTab(req.requestPayload ? "payload" : "response");
+                                }}
                               >
                                 <td className="py-3 px-4">
                                   {req.failed ? (
@@ -758,8 +954,14 @@ export default function Home() {
                                     <span className="text-slate-500">-</span>
                                   )}
                                 </td>
-                                <td className="py-3 px-4 font-bold text-slate-300">
-                                  {req.method}
+                                <td className="py-3 px-4">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getMethodBadgeClass(
+                                      req.method
+                                    )}`}
+                                  >
+                                    {req.method}
+                                  </span>
                                 </td>
                                 <td className="py-3 px-4 max-w-md truncate text-slate-300">
                                   <span title={req.url}>{req.url}</span>
@@ -777,10 +979,11 @@ export default function Home() {
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setSelectedReq(req);
+                                      setDetailTab(req.requestPayload ? "payload" : "response");
                                     }}
                                     className="bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2.5 py-1 rounded text-[11px] font-sans transition"
                                   >
-                                    Detail Payload
+                                    Inspect
                                   </button>
                                 </td>
                               </tr>
@@ -854,7 +1057,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* Modal: Request Detail (Lemparan & Balasan) */}
+        {/* Modal: Deep Request Inspection */}
         {selectedReq && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
@@ -885,19 +1088,59 @@ export default function Home() {
                 </button>
               </div>
 
+              {/* Subtabs for Detail */}
+              <div className="flex border-b border-slate-800 px-4 bg-slate-950/50 gap-4 text-xs font-medium">
+                <button
+                  onClick={() => setDetailTab("payload")}
+                  className={`py-2.5 border-b-2 transition ${
+                    detailTab === "payload"
+                      ? "border-indigo-500 text-indigo-400"
+                      : "border-transparent text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  Lemparan (Payload)
+                </button>
+                <button
+                  onClick={() => setDetailTab("response")}
+                  className={`py-2.5 border-b-2 transition ${
+                    detailTab === "response"
+                      ? "border-indigo-500 text-indigo-400"
+                      : "border-transparent text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  Balasan (Response Body)
+                </button>
+                <button
+                  onClick={() => setDetailTab("params")}
+                  className={`py-2.5 border-b-2 transition ${
+                    detailTab === "params"
+                      ? "border-indigo-500 text-indigo-400"
+                      : "border-transparent text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  Query Parameters
+                </button>
+                <button
+                  onClick={() => setDetailTab("headers")}
+                  className={`py-2.5 border-b-2 transition ${
+                    detailTab === "headers"
+                      ? "border-indigo-500 text-indigo-400"
+                      : "border-transparent text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  Headers
+                </button>
+              </div>
+
               {/* Modal Body */}
-              <div className="p-5 overflow-y-auto space-y-5 text-xs font-mono">
+              <div className="p-5 overflow-y-auto space-y-4 text-xs font-mono">
                 {/* URL */}
-                <div>
-                  <span className="text-slate-400 font-sans font-semibold block mb-1">
-                    URL Endpoint:
-                  </span>
-                  <div className="bg-slate-950 p-2.5 rounded border border-slate-800 text-slate-200 break-all select-all">
-                    {selectedReq.url}
-                  </div>
+                <div className="bg-slate-950 p-2.5 rounded border border-slate-800 text-slate-200 break-all select-all">
+                  <span className="text-slate-500 mr-2 font-sans">Full URL:</span>
+                  {selectedReq.url}
                 </div>
 
-                {/* Failure Reason if failed */}
+                {/* Failure Reason */}
                 {selectedReq.failed && (
                   <div className="bg-red-950/40 border border-red-800 p-3 rounded text-red-200 font-sans">
                     <span className="font-semibold block mb-0.5">Penyebab Kegagalan Network:</span>
@@ -905,14 +1148,11 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Grid for Lemparan (Request) vs Balasan (Response) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Request Payload / Lemparan */}
+                {/* Subtab Content: Payload */}
+                {detailTab === "payload" && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between font-sans">
-                      <span className="font-semibold text-slate-300">
-                        Lemparan (Request Payload):
-                      </span>
+                      <span className="font-semibold text-slate-300">Request Body / Lemparan:</span>
                       {selectedReq.requestPayload && (
                         <button
                           onClick={() =>
@@ -930,7 +1170,7 @@ export default function Home() {
                         </button>
                       )}
                     </div>
-                    <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 max-h-72 overflow-y-auto">
+                    <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 max-h-96 overflow-y-auto">
                       {selectedReq.requestPayload ? (
                         <pre className="text-slate-300 text-[11px] whitespace-pre-wrap break-all">
                           {typeof selectedReq.requestPayload === "string"
@@ -939,18 +1179,18 @@ export default function Home() {
                         </pre>
                       ) : (
                         <span className="text-slate-600 font-sans">
-                          (Tidak ada body payload / GET request)
+                          (Tidak ada body payload / Request GET)
                         </span>
                       )}
                     </div>
                   </div>
+                )}
 
-                  {/* Response Body / Balasan */}
+                {/* Subtab Content: Response */}
+                {detailTab === "response" && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between font-sans">
-                      <span className="font-semibold text-slate-300">
-                        Balasan (Response Body):
-                      </span>
+                      <span className="font-semibold text-slate-300">Response Body / Balasan:</span>
                       {selectedReq.responseBody && (
                         <button
                           onClick={() =>
@@ -968,7 +1208,7 @@ export default function Home() {
                         </button>
                       )}
                     </div>
-                    <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 max-h-72 overflow-y-auto">
+                    <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 max-h-96 overflow-y-auto">
                       {selectedReq.responseBody ? (
                         <pre className="text-slate-300 text-[11px] whitespace-pre-wrap break-all">
                           {typeof selectedReq.responseBody === "string"
@@ -982,32 +1222,60 @@ export default function Home() {
                       )}
                     </div>
                   </div>
-                </div>
+                )}
 
-                {/* Collapsible Headers */}
-                <details className="bg-slate-950 border border-slate-800 rounded-lg p-3">
-                  <summary className="cursor-pointer text-slate-400 font-sans font-medium text-xs">
-                    Tampilkan Request & Response Headers
-                  </summary>
-                  <div className="mt-3 pt-3 border-t border-slate-800 space-y-3">
+                {/* Subtab Content: Query Params */}
+                {detailTab === "params" && (
+                  <div className="space-y-2">
+                    <span className="font-semibold text-slate-300 font-sans block">
+                      Parsed Query Parameters:
+                    </span>
+                    <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 max-h-96 overflow-y-auto">
+                      {selectedReq.queryParams && Object.keys(selectedReq.queryParams).length > 0 ? (
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="text-slate-500 border-b border-slate-800">
+                              <th className="pb-2">Key</th>
+                              <th className="pb-2">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {Object.entries(selectedReq.queryParams).map(([k, v]) => (
+                              <tr key={k}>
+                                <td className="py-2 text-indigo-300 font-bold">{k}</td>
+                                <td className="py-2 text-slate-300 break-all">{v}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <span className="text-slate-600 font-sans">(Tidak ada query parameter pada URL)</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Subtab Content: Headers */}
+                {detailTab === "headers" && (
+                  <div className="space-y-4">
                     <div>
-                      <span className="text-slate-500 font-sans text-[11px] block mb-1">
+                      <span className="text-slate-400 font-sans font-semibold block mb-1">
                         Request Headers:
                       </span>
-                      <pre className="text-[11px] text-slate-400 overflow-x-auto">
+                      <pre className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-[11px] text-slate-300 overflow-x-auto">
                         {JSON.stringify(selectedReq.requestHeaders, null, 2)}
                       </pre>
                     </div>
                     <div>
-                      <span className="text-slate-500 font-sans text-[11px] block mb-1">
+                      <span className="text-slate-400 font-sans font-semibold block mb-1">
                         Response Headers:
                       </span>
-                      <pre className="text-[11px] text-slate-400 overflow-x-auto">
+                      <pre className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-[11px] text-slate-300 overflow-x-auto">
                         {JSON.stringify(selectedReq.responseHeaders, null, 2)}
                       </pre>
                     </div>
                   </div>
-                </details>
+                )}
               </div>
 
               {/* Modal Footer */}
@@ -1045,6 +1313,91 @@ export default function Home() {
                   alt="Page screenshot"
                   className="max-h-[75vh] object-contain rounded border border-slate-800"
                 />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Drawer: History */}
+        {showHistory && (
+          <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm">
+            <div className="bg-slate-900 border-l border-slate-800 w-full max-w-md h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
+              <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-2 font-bold text-sm text-white">
+                  <History className="w-4 h-4 text-indigo-400" />
+                  <span>Riwayat Scan Tersimpan</span>
+                </div>
+                <button
+                  onClick={() => setShowHistory(false)}
+                  className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+                {loadingHistory ? (
+                  <div className="text-center py-8 text-slate-400 text-xs">Memuat riwayat...</div>
+                ) : historyList.length === 0 ? (
+                  <div className="text-center py-12 text-slate-500 text-xs">
+                    Belum ada riwayat scan.
+                  </div>
+                ) : (
+                  historyList.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => loadPastScan(item.id)}
+                      className="p-3 bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-indigo-500/50 rounded-xl cursor-pointer transition space-y-1.5 group"
+                    >
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-mono text-[11px] text-indigo-400 truncate max-w-[200px]">
+                          #{item.id}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-500">
+                            {new Date(item.created_at).toLocaleDateString("id-ID", {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                          <button
+                            onClick={(e) => deletePastScan(e, item.id)}
+                            className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition p-1"
+                            title="Hapus riwayat"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="font-mono text-xs text-slate-200 truncate" title={item.target_url}>
+                        {item.target_url}
+                      </div>
+
+                      <div className="flex items-center gap-2 text-[10px]">
+                        <span className="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">
+                          {item.total_requests} req
+                        </span>
+                        {item.error_requests > 0 ? (
+                          <span className="bg-red-950/80 text-red-400 border border-red-800/60 px-1.5 py-0.5 rounded font-bold">
+                            {item.error_requests} errors
+                          </span>
+                        ) : (
+                          <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 px-1.5 py-0.5 rounded">
+                            0 error
+                          </span>
+                        )}
+                        {item.console_errors > 0 && (
+                          <span className="bg-amber-950/80 text-amber-400 border border-amber-800/60 px-1.5 py-0.5 rounded">
+                            {item.console_errors} console err
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

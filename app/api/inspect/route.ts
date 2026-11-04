@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chromium, Browser, BrowserContext, Page } from "playwright";
+import { saveScan } from "@/lib/db";
+import crypto from "node:crypto";
 
 export const maxDuration = 60; // Allow up to 60s for Playwright scan
 
 interface RequestItem {
   id: string;
   url: string;
+  pathname: string;
+  queryParams: Record<string, string>;
   method: string;
   resourceType: string;
   requestHeaders: Record<string, string>;
@@ -63,6 +67,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const scanId = `scan_${Date.now().toString(36)}_${crypto.randomBytes(3).toString("hex")}`;
+
     // Launch Playwright using installed Google Chrome or Chromium
     try {
       browser = await chromium.launch({
@@ -76,7 +82,6 @@ export async function POST(req: NextRequest) {
         ],
       });
     } catch {
-      // Fallback to default chromium if channel chrome fails
       browser = await chromium.launch({
         headless: true,
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -108,7 +113,6 @@ export async function POST(req: NextRequest) {
         const domain = targetUrlObj.hostname;
 
         if (rawCookies.trim().startsWith("[")) {
-          // JSON array format [{ name, value, ... }]
           const parsedCookies = JSON.parse(rawCookies);
           const formattedCookies = parsedCookies.map((c: any) => ({
             name: c.name,
@@ -118,7 +122,6 @@ export async function POST(req: NextRequest) {
           }));
           await context.addCookies(formattedCookies);
         } else {
-          // Semicolon-separated string: "cookie1=val1; cookie2=val2"
           const cookiePairs = rawCookies.split(";").map((s: string) => s.trim());
           const formattedCookies = cookiePairs
             .filter((pair: string) => pair.includes("="))
@@ -168,6 +171,20 @@ export async function POST(req: NextRequest) {
       });
     });
 
+    // Helper to parse query params
+    const parseUrlInfo = (rawUrl: string) => {
+      try {
+        const parsed = new URL(rawUrl);
+        const params: Record<string, string> = {};
+        parsed.searchParams.forEach((v, k) => {
+          params[k] = v;
+        });
+        return { pathname: parsed.pathname, queryParams: params };
+      } catch {
+        return { pathname: rawUrl, queryParams: {} };
+      }
+    };
+
     // Intercept Network Requests
     page.on("request", (req) => {
       const reqId = `${req.method()}_${req.url()}_${Date.now()}`;
@@ -185,9 +202,13 @@ export async function POST(req: NextRequest) {
         payload = null;
       }
 
+      const { pathname, queryParams } = parseUrlInfo(req.url());
+
       requestsMap.set(req.url(), {
         id: reqId,
         url: req.url(),
+        pathname,
+        queryParams,
         method: req.method(),
         resourceType: req.resourceType(),
         requestHeaders: req.headers(),
@@ -214,7 +235,6 @@ export async function POST(req: NextRequest) {
       let bodyData: any = null;
       const resourceType = req.resourceType();
 
-      // Only attempt to read body for API/XHR/Fetch/Document/JSON to avoid downloading huge blobs/videos
       if (
         ["fetch", "xhr", "document"].includes(resourceType) ||
         res.headers()["content-type"]?.includes("json") ||
@@ -242,9 +262,12 @@ export async function POST(req: NextRequest) {
         existing.durationMs = Date.now() - existing.timestamp;
         existing.isError = isError;
       } else {
+        const { pathname, queryParams } = parseUrlInfo(req.url());
         requestsMap.set(req.url(), {
           id: `${req.method()}_${req.url()}_${Date.now()}`,
           url: req.url(),
+          pathname,
+          queryParams,
           method: req.method(),
           resourceType: req.resourceType(),
           requestHeaders: req.headers(),
@@ -262,7 +285,7 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    // Intercept Request Failures (CORS, network drop, timeout)
+    // Intercept Request Failures
     page.on("requestfailed", (req) => {
       const existing = requestsMap.get(req.url());
       const failure = req.failure();
@@ -273,9 +296,12 @@ export async function POST(req: NextRequest) {
         existing.failureReason = reason;
         existing.isError = true;
       } else {
+        const { pathname, queryParams } = parseUrlInfo(req.url());
         requestsMap.set(req.url(), {
           id: `${req.method()}_${req.url()}_${Date.now()}`,
           url: req.url(),
+          pathname,
+          queryParams,
           method: req.method(),
           resourceType: req.resourceType(),
           requestHeaders: req.headers(),
@@ -329,7 +355,6 @@ export async function POST(req: NextRequest) {
       });
     } catch (err: any) {
       navError = err.message;
-      // Continue anyway to collect any requests that fired before timeout
     }
 
     // Wait for subsequent AJAX / background requests
@@ -357,6 +382,16 @@ export async function POST(req: NextRequest) {
     const errorRequests = allRequests.filter((r) => r.isError);
     const consoleErrors = consoleLogs.filter((c) => c.type === "error");
 
+    // Calculate Health Score (100 is perfect)
+    let healthScore = 100;
+    if (navError) healthScore -= 50;
+    healthScore -= pageErrors.length * 20;
+    healthScore -= errorRequests.filter((r) => r.status && r.status >= 500).length * 15;
+    healthScore -= errorRequests.filter((r) => r.status && r.status >= 400 && r.status < 500).length * 5;
+    healthScore -= errorRequests.filter((r) => r.failed).length * 10;
+    healthScore -= consoleErrors.length * 5;
+    healthScore = Math.max(0, Math.min(100, healthScore));
+
     // Generate Diagnostic Summaries
     const diagnostics = generateDiagnostics({
       navError,
@@ -367,12 +402,14 @@ export async function POST(req: NextRequest) {
       targetUrl: url,
     });
 
-    return NextResponse.json({
-      success: true,
+    const fullResult = {
+      id: scanId,
       meta: {
+        id: scanId,
         targetUrl: url,
         finalUrl,
         pageTitle,
+        healthScore,
         navigationTimeMs: Date.now() - navStartTime,
         totalRequestsCount: allRequests.length,
         apiRequestsCount: apiRequests.length,
@@ -385,6 +422,25 @@ export async function POST(req: NextRequest) {
       requests: allRequests,
       consoleLogs,
       pageErrors,
+    };
+
+    // Save to SQLite
+    saveScan({
+      id: scanId,
+      targetUrl: url,
+      finalUrl,
+      pageTitle,
+      totalRequests: allRequests.length,
+      errorRequests: errorRequests.length,
+      consoleErrors: consoleErrors.length,
+      navigationTimeMs: Date.now() - navStartTime,
+      screenshot: fullResult.meta.screenshot,
+      fullData: fullResult,
+    });
+
+    return NextResponse.json({
+      success: true,
+      ...fullResult,
     });
   } catch (error: any) {
     return NextResponse.json(
@@ -437,7 +493,6 @@ function generateDiagnostics({
     });
   }
 
-  // Redirected to login check
   if (finalUrl !== targetUrl && (finalUrl.includes("/login") || finalUrl.includes("/signin") || finalUrl.includes("/auth"))) {
     issues.push({
       severity: "HIGH",
