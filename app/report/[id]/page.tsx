@@ -11,17 +11,21 @@ import {
   CheckCircle2,
   Compass,
   Copy,
+  Download,
   ExternalLink,
   Eye,
   FileJson,
+  Monitor,
   Printer,
   RefreshCw,
   Search,
   Share2,
+  Smartphone,
   Terminal,
   X,
   XCircle,
 } from "lucide-react";
+import { convertRequestsToHAR, downloadHARFile } from "@/lib/har";
 
 interface RequestItem {
   id: string;
@@ -72,6 +76,7 @@ interface ScanData {
     finalUrl: string;
     pageTitle: string;
     crawlMode?: "single" | "multi";
+    device?: "desktop" | "mobile";
     healthScore: number;
     navigationTimeMs: number;
     totalRequestsCount: number;
@@ -153,6 +158,12 @@ function ReportContent() {
     navigator.clipboard.writeText(window.location.href);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const exportHAR = () => {
+    if (!scan) return;
+    const har = convertRequestsToHAR(scan.meta, scan.requests);
+    downloadHARFile(`inspect-${scan.id || "report"}.har`, har);
   };
 
   const copyMarkdownBugReport = () => {
@@ -261,6 +272,15 @@ ${scan.diagnostics
 
           <div className="flex items-center gap-2">
             <button
+              onClick={exportHAR}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-300 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition"
+              title="Download HTTP Archive (.HAR 1.2)"
+            >
+              <Download className="w-3.5 h-3.5 text-sky-400" />
+              <span>Export .HAR</span>
+            </button>
+
+            <button
               onClick={copyShareLink}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-300 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition"
             >
@@ -307,10 +327,19 @@ ${scan.diagnostics
               </span>
             )}
           </div>
-          <div className="text-xs text-zinc-400 flex items-center gap-2">
+          <div className="text-xs text-zinc-400 flex flex-wrap items-center gap-2">
             <span>Title: <strong className="text-zinc-300 font-medium">{scan.meta.pageTitle || "Untitled"}</strong></span>
             <span className="text-zinc-600">•</span>
             <span className="font-mono text-zinc-500">{(scan.meta.navigationTimeMs / 1000).toFixed(2)}s load time</span>
+            {scan.meta.device && (
+              <>
+                <span className="text-zinc-600">•</span>
+                <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800 inline-flex items-center gap-1">
+                  {scan.meta.device === "mobile" ? <Smartphone className="w-3 h-3 text-sky-400" /> : <Monitor className="w-3 h-3 text-zinc-400" />}
+                  {scan.meta.device === "mobile" ? "Mobile (390px)" : "Desktop (1440px)"}
+                </span>
+              </>
+            )}
           </div>
         </div>
 

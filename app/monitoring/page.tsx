@@ -389,6 +389,16 @@ export default function MonitoringPage() {
                           </td>
 
                           <td className="py-2.5 px-3 text-right font-sans space-x-1.5">
+                            <Link
+                              href={`/status/${m.id}`}
+                              target="_blank"
+                              className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white px-2 py-0.5 rounded text-[11px] border border-zinc-800 transition inline-flex items-center gap-1"
+                              title="Buka Halaman Status Publik"
+                            >
+                              <ExternalLink className="w-3 h-3 text-sky-400" />
+                              <span>Status</span>
+                            </Link>
+
                             <button
                               onClick={() => handleRunNow(m.id)}
                               disabled={runningId === m.id}

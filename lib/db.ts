@@ -290,6 +290,26 @@ export function deleteMonitor(id: string) {
   return (res.changes as number) > 0;
 }
 
+export interface MonitorLogRecord {
+  id: string;
+  monitor_id: string;
+  scan_id: string | null;
+  status_code: number;
+  health_score: number;
+  alert_sent: number;
+  created_at: string;
+}
+
+export function getMonitorLogs(monitorId: string, limit = 50): MonitorLogRecord[] {
+  const stmt = db.prepare(`
+    SELECT * FROM monitor_logs
+    WHERE monitor_id = ?
+    ORDER BY created_at DESC
+    LIMIT ?
+  `);
+  return stmt.all(monitorId, limit) as MonitorLogRecord[];
+}
+
 // User & Auth Management
 export interface UserRecord {
   id: string;

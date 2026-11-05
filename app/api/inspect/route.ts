@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
       captureScreenshot = true,
       crawlMode = "single", // "single" | "multi"
       maxPages = 3, // default 3 pages for multi
+      device = "desktop", // "desktop" | "mobile"
     } = body;
 
     if (!url || typeof url !== "string") {
@@ -132,10 +133,20 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    const isMobile = device === "mobile";
+    const viewport = isMobile
+      ? { width: 390, height: 844 } // iPhone 14 / modern mobile viewport
+      : { width: 1440, height: 900 };
+    const userAgent = isMobile
+      ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      : "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
     context = await browser.newContext({
-      viewport: { width: 1440, height: 900 },
-      userAgent:
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      viewport,
+      userAgent,
+      isMobile,
+      hasTouch: isMobile,
+      deviceScaleFactor: isMobile ? 3 : 1,
       ignoreHTTPSErrors: true,
     });
 
@@ -546,6 +557,7 @@ export async function POST(req: NextRequest) {
         finalUrl,
         pageTitle: primaryTitle,
         crawlMode,
+        device: isMobile ? "mobile" : "desktop",
         healthScore,
         navigationTimeMs: Date.now() - navStartTime,
         totalRequestsCount: allRequests.length,

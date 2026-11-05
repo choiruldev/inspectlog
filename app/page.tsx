@@ -37,7 +37,11 @@ import {
   ChevronRight,
   SlidersHorizontal,
   Code2,
+  Download,
+  Monitor,
+  Smartphone,
 } from "lucide-react";
+import { convertRequestsToHAR, downloadHARFile } from "@/lib/har";
 
 interface RequestItem {
   id: string;
@@ -89,6 +93,7 @@ interface InspectResult {
     finalUrl: string;
     pageTitle: string;
     crawlMode: "single" | "multi";
+    device?: "desktop" | "mobile";
     healthScore: number;
     navigationTimeMs: number;
     totalRequestsCount: number;
@@ -133,6 +138,7 @@ interface HistoryItem {
 export default function Home() {
   const [url, setUrl] = useState("");
   const [crawlMode, setCrawlMode] = useState<"single" | "multi">("single");
+  const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [maxPages, setMaxPages] = useState(3);
   const [waitDuration, setWaitDuration] = useState(3000);
   const [authMode, setAuthMode] = useState<"none" | "cookies" | "headers" | "loginFlow">("none");
@@ -332,6 +338,7 @@ export default function Home() {
         setResult(data.scan);
         setUrl(data.scan.meta.targetUrl || "");
         setCrawlMode(data.scan.meta.crawlMode || "single");
+        setDevice(data.scan.meta.device || "desktop");
         setShowHistory(false);
         if (data.scan.meta.crawlMode === "multi" && data.scan.meta.crawledPages?.length > 1) {
           setActiveTab("crawled");
@@ -380,6 +387,7 @@ export default function Home() {
         body: JSON.stringify({
           url: url.startsWith("http") ? url : `https://${url}`,
           crawlMode,
+          device,
           maxPages: crawlMode === "multi" ? maxPages : 1,
           waitDuration,
           authMode,
@@ -468,6 +476,12 @@ ${result.diagnostics
     a.download = `inspect-report-${result.id || Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(downloadUrl);
+  };
+
+  const exportHAR = () => {
+    if (!result) return;
+    const har = convertRequestsToHAR(result.meta, result.requests);
+    downloadHARFile(`inspect-${result.id || "export"}.har`, har);
   };
 
   const filteredRequests = (result?.requests || []).filter((req) => {
@@ -597,6 +611,14 @@ ${result.diagnostics
                   {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
                 </button>
                 <button
+                  onClick={exportHAR}
+                  title="Export HTTP Archive (.HAR 1.2)"
+                  className="p-1.5 rounded-md text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition font-mono text-[11px] flex items-center gap-1"
+                >
+                  <Download className="w-3.5 h-3.5 text-sky-400" />
+                  <span className="hidden sm:inline text-[10px]">HAR</span>
+                </button>
+                <button
                   onClick={exportReport}
                   title="Export JSON report"
                   className="p-1.5 rounded-md text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition font-mono text-[11px]"
@@ -653,6 +675,36 @@ ${result.diagnostics
                 >
                   <Compass className="w-3.5 h-3.5" />
                   Crawler
+                </button>
+              </div>
+
+              {/* Device Selector */}
+              <div className="flex items-center bg-[#0d0f17] border border-zinc-800 rounded-lg p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setDevice("desktop")}
+                  className={`px-2.5 py-1.5 rounded-md font-medium transition flex items-center gap-1.5 ${
+                    device === "desktop"
+                      ? "bg-zinc-800 text-white shadow-sm"
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                  title="Desktop Viewport (1440x900)"
+                >
+                  <Monitor className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Desktop</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDevice("mobile")}
+                  className={`px-2.5 py-1.5 rounded-md font-medium transition flex items-center gap-1.5 ${
+                    device === "mobile"
+                      ? "bg-zinc-800 text-white shadow-sm"
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                  title="Mobile Viewport (iPhone 390x844)"
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Mobile</span>
                 </button>
               </div>
 
@@ -1106,9 +1158,32 @@ ${result.diagnostics
                     {result.meta.crawledPages.length} pages
                   </span>
                 )}
+                {result.meta.device && (
+                  <span className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800 font-mono inline-flex items-center gap-1">
+                    {result.meta.device === "mobile" ? (
+                      <>
+                        <Smartphone className="w-3 h-3 text-sky-400" />
+                        <span>Mobile (390px)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Monitor className="w-3 h-3 text-zinc-400" />
+                        <span>Desktop (1440px)</span>
+                      </>
+                    )}
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  onClick={exportHAR}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white transition"
+                  title="Download HAR 1.2 file for Chrome DevTools / Postman / Charles"
+                >
+                  <Download className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Export .HAR</span>
+                </button>
                 <button
                   onClick={copyMarkdownBugReport}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white transition"
