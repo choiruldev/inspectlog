@@ -8,14 +8,12 @@ import {
   AlertTriangle,
   ArrowLeft,
   Check,
-  CheckCircle,
+  CheckCircle2,
   Compass,
   Copy,
   ExternalLink,
   Eye,
   FileJson,
-  Filter,
-  Layers,
   Printer,
   RefreshCw,
   Search,
@@ -125,27 +123,30 @@ function ReportContent() {
 
   useEffect(() => {
     if (!id) return;
-
-    fetch(`/api/scans/${id}`)
-      .then((res) => res.json())
-      .then((res) => {
-        if (!res.success || !res.scan?.data) {
-          throw new Error(res.error || "Laporan tidak ditemukan.");
-        }
-        setScan(res.scan.data);
-        setCreatedAt(res.scan.created_at);
-        if (res.scan.data.diagnostics?.length > 0) {
-          setActiveTab("diagnostics");
+    const fetchReport = async () => {
+      try {
+        const res = await fetch(`/api/scans/${id}`);
+        const data = await res.json();
+        if (data.success && data.scan) {
+          setScan(data.scan);
+          setCreatedAt(data.created_at || null);
+          if (data.scan.meta?.crawledPages && data.scan.meta.crawledPages.length > 1) {
+            setActiveTab("crawled");
+          } else if (data.scan.diagnostics?.length > 0) {
+            setActiveTab("diagnostics");
+          } else {
+            setActiveTab("requests");
+          }
         } else {
-          setActiveTab("requests");
+          setErrorMsg(data.error || "Report not found.");
         }
-      })
-      .catch((err) => {
-        setErrorMsg(err.message || "Gagal memuat laporan.");
-      })
-      .finally(() => {
+      } catch {
+        setErrorMsg("Failed to connect to inspection database.");
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    fetchReport();
   }, [id]);
 
   const copyShareLink = () => {
@@ -173,7 +174,7 @@ ${scan.diagnostics
   .join("\n\n")}
 
 ---
-*Laporan digenerate otomatis via InspectLog (${typeof window !== "undefined" ? window.location.href : ""})*
+*Generated via InspectLog (${typeof window !== "undefined" ? window.location.href : ""})*
 `;
     navigator.clipboard.writeText(md);
     setCopiedMarkdown(true);
@@ -206,10 +207,10 @@ ${scan.diagnostics
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin" />
-          <p className="text-sm text-slate-400">Memuat laporan inspeksi #{id}...</p>
+      <main className="min-h-screen bg-[#090a0f] text-zinc-100 flex items-center justify-center font-mono text-xs">
+        <div className="flex flex-col items-center gap-2">
+          <RefreshCw className="w-5 h-5 text-zinc-400 animate-spin" />
+          <p className="text-zinc-500">Loading inspection report #{id}...</p>
         </div>
       </main>
     );
@@ -217,334 +218,369 @@ ${scan.diagnostics
 
   if (errorMsg || !scan) {
     return (
-      <main className="min-h-screen bg-slate-950 text-slate-100 p-8 flex items-center justify-center">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-md text-center space-y-4">
-          <XCircle className="w-12 h-12 text-red-400 mx-auto" />
-          <h2 className="text-lg font-bold text-white">Laporan Tidak Ditemukan</h2>
-          <p className="text-xs text-slate-400">{errorMsg || "ID scan ini tidak terdaftar."}</p>
+      <main className="min-h-screen bg-[#090a0f] text-zinc-100 p-6 flex items-center justify-center font-sans">
+        <div className="border border-zinc-800 bg-[#0c0e14] rounded-xl p-8 max-w-sm text-center space-y-3">
+          <XCircle className="w-8 h-8 text-rose-400 mx-auto" />
+          <h2 className="text-sm font-semibold text-zinc-100">Report Not Found</h2>
+          <p className="text-xs text-zinc-500">{errorMsg || "This scan ID is not registered or was deleted."}</p>
           <Link
             href="/"
-            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-4 py-2 rounded-lg"
+            className="inline-flex items-center gap-1.5 bg-zinc-100 hover:bg-white text-zinc-950 text-xs px-3 py-1.5 rounded-md font-medium transition"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Kembali ke Halaman Utama
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back to Inspector
           </Link>
         </div>
       </main>
     );
   }
 
-  const scoreColor =
-    scan.meta.healthScore >= 80
-      ? "text-emerald-400 border-emerald-500/30 bg-emerald-950/20"
-      : scan.meta.healthScore >= 50
-      ? "text-amber-400 border-amber-500/30 bg-amber-950/20"
-      : "text-red-400 border-red-500/30 bg-red-950/20";
-
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 font-sans">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Top Navbar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg transition"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Scan URL Lain
-          </Link>
+    <main className="min-h-screen bg-[#090a0f] text-zinc-100 font-sans selection:bg-zinc-800 selection:text-white">
+      {/* Top Application Bar */}
+      <nav className="border-b border-zinc-800/80 bg-[#090a0f]/90 backdrop-blur sticky top-0 z-40 print:hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="p-1.5 rounded-md text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition"
+              title="Return to Inspector"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Link>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 ring-4 ring-emerald-500/20"></span>
+              <span className="font-semibold text-sm tracking-tight text-zinc-100 font-mono">
+                InspectLog Report
+              </span>
+            </div>
+            <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">
+              #{scan.meta.id}
+            </span>
+          </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={copyShareLink}
-              className="inline-flex items-center gap-1.5 text-xs font-medium bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 px-3 py-1.5 rounded-lg transition"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-300 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition"
             >
-              {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5 text-indigo-400" />}
-              {copiedLink ? "Link Disalin!" : "Bagikan Link"}
+              {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5 text-zinc-400" />}
+              <span>{copiedLink ? "Link Copied" : "Share"}</span>
             </button>
 
             <button
               onClick={copyMarkdownBugReport}
-              className="inline-flex items-center gap-1.5 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition shadow-md"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-zinc-100 hover:bg-white text-zinc-950 transition border border-zinc-200 shadow-sm"
             >
               {copiedMarkdown ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              {copiedMarkdown ? "Laporan Disalin!" : "Salin Format Bug Dev"}
+              <span>{copiedMarkdown ? "Copied" : "Copy Markdown"}</span>
             </button>
 
             <button
               onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 text-xs font-medium bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 px-3 py-1.5 rounded-lg transition"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-400 hover:text-zinc-200 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition"
             >
-              <Printer className="w-3.5 h-3.5 text-slate-400" />
-              Cetak PDF
+              <Printer className="w-3.5 h-3.5" />
+              <span>Print</span>
             </button>
           </div>
         </div>
+      </nav>
 
-        {/* Report Header Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-3xl">
+      {/* Main Workspace Frame */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Target Header Deck */}
+        <div className="border border-zinc-800/80 bg-[#0c0e14] rounded-lg p-4 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-mono bg-indigo-950 text-indigo-300 border border-indigo-800/60 px-2 py-0.5 rounded">
-                REPORT #{scan.meta.id}
+              <span className="text-xs font-mono text-zinc-500">target:</span>
+              <span className="font-mono text-sm font-semibold text-zinc-100 break-all select-all">
+                {scan.meta.targetUrl}
               </span>
-              {createdAt && (
-                <span className="text-xs text-slate-500">
-                  {new Date(createdAt).toLocaleString("id-ID", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
-                </span>
-              )}
             </div>
-            <h1 className="text-xl md:text-2xl font-bold text-white break-all">
-              {scan.meta.targetUrl}
-            </h1>
-            <p className="text-xs text-slate-400 flex items-center gap-1">
-              Title: <span className="text-slate-300 font-medium">{scan.meta.pageTitle || "Tanpa Title"}</span>
-            </p>
-          </div>
-
-          {/* Health Score Pill */}
-          <div className={`flex flex-col items-center justify-center p-4 rounded-xl border ${scoreColor} min-w-[140px]`}>
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Health Score</span>
-            <span className="text-3xl font-extrabold mt-1">{scan.meta.healthScore}</span>
-            <span className="text-[11px] font-medium mt-0.5">
-              {scan.meta.healthScore >= 80 ? "Normal" : scan.meta.healthScore >= 50 ? "Butuh Perbaikan" : "Kritis / Rusak"}
-            </span>
-          </div>
-        </div>
-
-        {/* Metrics Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <span className="text-xs text-slate-400">Total Traffic</span>
-            <div className="text-2xl font-bold text-white mt-1">{scan.meta.totalRequestsCount}</div>
-            <span className="text-[11px] text-slate-500">{scan.meta.apiRequestsCount} Fetch / XHR API</span>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <span className="text-xs text-slate-400">API Error (4xx/5xx/Fail)</span>
-            <div className={`text-2xl font-bold mt-1 ${scan.meta.errorRequestsCount > 0 ? "text-red-400" : "text-emerald-400"}`}>
-              {scan.meta.errorRequestsCount}
-            </div>
-            <span className="text-[11px] text-slate-500">
-              {scan.meta.errorRequestsCount > 0 ? "Lemparan/Balasan bermasalah" : "Semua endpoint aman"}
-            </span>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <span className="text-xs text-slate-400">Console & Script Errors</span>
-            <div className={`text-2xl font-bold mt-1 ${scan.meta.consoleErrorsCount > 0 ? "text-amber-400" : "text-slate-300"}`}>
-              {scan.meta.consoleErrorsCount}
-            </div>
-            <span className="text-[11px] text-slate-500">{scan.meta.pageErrorsCount} Uncaught JS Crash</span>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-            <span className="text-xs text-slate-400">Screenshot Visual</span>
-            {scan.meta.screenshot ? (
-              <button
-                onClick={() => setShowScreenshot(true)}
-                className="mt-2 text-xs flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 py-1.5 px-3 rounded-lg border border-slate-700 transition"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                Buka Screenshot
-              </button>
-            ) : (
-              <span className="text-xs text-slate-500 mt-2">Tidak tersedia</span>
+            {createdAt && (
+              <span className="text-[11px] font-mono text-zinc-500">
+                {new Date(createdAt).toLocaleString("id-ID", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+              </span>
             )}
-            <span className="text-[10px] text-slate-500 mt-1">{(scan.meta.navigationTimeMs / 1000).toFixed(2)}s load time</span>
+          </div>
+          <div className="text-xs text-zinc-400 flex items-center gap-2">
+            <span>Title: <strong className="text-zinc-300 font-medium">{scan.meta.pageTitle || "Untitled"}</strong></span>
+            <span className="text-zinc-600">•</span>
+            <span className="font-mono text-zinc-500">{(scan.meta.navigationTimeMs / 1000).toFixed(2)}s load time</span>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-slate-800 gap-4">
-          {scan.meta.crawledPages && scan.meta.crawledPages.length > 1 && (
-            <button
-              onClick={() => setActiveTab("crawled")}
-              className={`pb-3 text-sm font-medium flex items-center gap-2 border-b-2 transition ${
-                activeTab === "crawled" ? "border-indigo-500 text-indigo-400" : "border-transparent text-slate-400 hover:text-slate-200"
+        {/* Metric Strip */}
+        <div className="border border-zinc-800/80 bg-[#0c0e14] rounded-lg divide-y sm:divide-y-0 sm:divide-x divide-zinc-800/80 grid grid-cols-2 sm:grid-cols-4 text-left">
+          {/* Health */}
+          <div className="p-3.5 space-y-1">
+            <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wider block">Health Score</span>
+            <div className="flex items-baseline gap-1.5">
+              <span
+                className={`text-2xl font-semibold tracking-tight font-mono ${
+                  scan.meta.healthScore >= 80
+                    ? "text-emerald-400"
+                    : scan.meta.healthScore >= 50
+                    ? "text-amber-400"
+                    : "text-rose-400"
+                }`}
+              >
+                {scan.meta.healthScore}
+              </span>
+              <span className="text-xs text-zinc-500 font-mono">/100</span>
+            </div>
+            <div className="text-[10px] text-zinc-400">
+              {scan.meta.healthScore >= 80 ? "Nominal status" : "Attention needed"}
+            </div>
+          </div>
+
+          {/* Traffic */}
+          <div className="p-3.5 space-y-1">
+            <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wider block">Total Traffic</span>
+            <div className="text-2xl font-semibold tracking-tight font-mono text-zinc-100">
+              {scan.meta.totalRequestsCount}
+            </div>
+            <div className="text-[10px] text-zinc-400 font-mono">
+              {scan.meta.apiRequestsCount} Fetch/XHR
+            </div>
+          </div>
+
+          {/* Failed / Errors */}
+          <div className="p-3.5 space-y-1">
+            <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wider block">Failed / 4xx / 5xx</span>
+            <div
+              className={`text-2xl font-semibold tracking-tight font-mono ${
+                scan.meta.errorRequestsCount > 0 ? "text-rose-400" : "text-emerald-400"
               }`}
             >
-              <Compass className="w-4 h-4" />
-              Halaman Dijelajahi ({scan.meta.crawledPages.length})
+              {scan.meta.errorRequestsCount}
+            </div>
+            <div className="text-[10px] text-zinc-400">
+              {scan.meta.errorRequestsCount > 0 ? "API failures detected" : "Zero errors"}
+            </div>
+          </div>
+
+          {/* Console / Crashes */}
+          <div className="p-3.5 space-y-1">
+            <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wider block">Console / Crashes</span>
+            <div
+              className={`text-2xl font-semibold tracking-tight font-mono ${
+                scan.meta.consoleErrorsCount > 0 || scan.meta.pageErrorsCount > 0
+                  ? "text-amber-400"
+                  : "text-zinc-300"
+              }`}
+            >
+              {scan.meta.consoleErrorsCount + scan.meta.pageErrorsCount}
+            </div>
+            <div className="text-[10px] text-zinc-400 font-mono">
+              {scan.meta.pageErrorsCount} uncaught crashes
+            </div>
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="border-b border-zinc-800 flex items-center justify-between gap-4 print:hidden">
+          <div className="flex items-center gap-1 sm:gap-2">
+            {scan.meta.crawledPages && scan.meta.crawledPages.length > 1 && (
+              <button
+                onClick={() => setActiveTab("crawled")}
+                className={`px-3 py-2 text-xs font-medium border-b-2 transition flex items-center gap-1.5 ${
+                  activeTab === "crawled"
+                    ? "border-zinc-200 text-zinc-100"
+                    : "border-transparent text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                <Compass className="w-3.5 h-3.5" />
+                <span>Crawled Pages</span>
+                <span className="font-mono text-[10px] text-zinc-400">({scan.meta.crawledPages.length})</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setActiveTab("diagnostics")}
+              className={`px-3 py-2 text-xs font-medium border-b-2 transition flex items-center gap-1.5 ${
+                activeTab === "diagnostics"
+                  ? "border-zinc-200 text-zinc-100"
+                  : "border-transparent text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>Diagnostics</span>
+              <span className="font-mono text-[10px] text-zinc-400">({scan.diagnostics.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("requests")}
+              className={`px-3 py-2 text-xs font-medium border-b-2 transition flex items-center gap-1.5 ${
+                activeTab === "requests"
+                  ? "border-zinc-200 text-zinc-100"
+                  : "border-transparent text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Network Requests</span>
+              <span className="font-mono text-[10px] text-zinc-400">({scan.requests.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("console")}
+              className={`px-3 py-2 text-xs font-medium border-b-2 transition flex items-center gap-1.5 ${
+                activeTab === "console"
+                  ? "border-zinc-200 text-zinc-100"
+                  : "border-transparent text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              <span>Console Logs</span>
+              <span className="font-mono text-[10px] text-zinc-400">({scan.consoleLogs.length + scan.pageErrors.length})</span>
+            </button>
+          </div>
+
+          {scan.meta.screenshot && (
+            <button
+              onClick={() => setShowScreenshot(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 text-xs text-zinc-300 transition"
+            >
+              <Eye className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Screenshot</span>
             </button>
           )}
-
-          <button
-            onClick={() => setActiveTab("diagnostics")}
-            className={`pb-3 text-sm font-medium flex items-center gap-2 border-b-2 transition ${
-              activeTab === "diagnostics" ? "border-indigo-500 text-indigo-400" : "border-transparent text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <AlertTriangle className="w-4 h-4" />
-            Diagnosa & Masalah ({scan.diagnostics.length})
-          </button>
-
-          <button
-            onClick={() => setActiveTab("requests")}
-            className={`pb-3 text-sm font-medium flex items-center gap-2 border-b-2 transition ${
-              activeTab === "requests" ? "border-indigo-500 text-indigo-400" : "border-transparent text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <Activity className="w-4 h-4" />
-            API & Lemparan Payload ({scan.requests.length})
-          </button>
-
-          <button
-            onClick={() => setActiveTab("console")}
-            className={`pb-3 text-sm font-medium flex items-center gap-2 border-b-2 transition ${
-              activeTab === "console" ? "border-indigo-500 text-indigo-400" : "border-transparent text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <Terminal className="w-4 h-4" />
-            Console Error Logs ({scan.consoleLogs.length})
-          </button>
         </div>
 
         {/* TAB: CRAWLED PAGES */}
         {activeTab === "crawled" && scan.meta.crawledPages && (
-          <div className="space-y-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-mono">
-                  <thead className="bg-slate-950/80 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-800 font-sans">
-                    <tr>
-                      <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4">URL Halaman Internal</th>
-                      <th className="py-3 px-4">Title</th>
-                      <th className="py-3 px-4">Load Time</th>
-                      <th className="py-3 px-4">API Errors</th>
-                      <th className="py-3 px-4 text-right">Filter Request</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {scan.meta.crawledPages.map((page, idx) => (
-                      <tr key={idx} className="hover:bg-slate-800/50 transition">
-                        <td className="py-3 px-4">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                              page.status >= 400 || page.status === 0
-                                ? "bg-red-900/60 text-red-300 border border-red-800"
-                                : "bg-emerald-900/40 text-emerald-300 border border-emerald-800"
-                            }`}
-                          >
-                            {page.status || "ERR"}
+          <div className="border border-zinc-800/80 rounded-lg overflow-hidden bg-[#0c0e14]">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-[#0e1017] text-zinc-400 font-sans border-b border-zinc-800 text-[11px]">
+                  <tr>
+                    <th className="py-2.5 px-3 w-16">Status</th>
+                    <th className="py-2.5 px-3">Internal Path URL</th>
+                    <th className="py-2.5 px-3 font-sans">Title</th>
+                    <th className="py-2.5 px-3 w-24">Timing</th>
+                    <th className="py-2.5 px-3 w-28">Errors</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/60">
+                  {scan.meta.crawledPages.map((page, idx) => (
+                    <tr key={idx} className="hover:bg-zinc-900/40 transition">
+                      <td className="py-2.5 px-3">
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[11px] font-mono font-medium ${
+                            page.status >= 400 || page.status === 0
+                              ? "bg-rose-950/60 text-rose-300 border border-rose-900/70"
+                              : "bg-emerald-950/60 text-emerald-300 border border-emerald-900/70"
+                          }`}
+                        >
+                          {page.status || "ERR"}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-zinc-300 max-w-sm truncate" title={page.url}>
+                        {page.url}
+                      </td>
+                      <td className="py-2.5 px-3 text-zinc-400 font-sans max-w-xs truncate">
+                        {page.pageTitle || "-"}
+                      </td>
+                      <td className="py-2.5 px-3 text-zinc-400 font-mono">
+                        {(page.durationMs / 1000).toFixed(2)}s
+                      </td>
+                      <td className="py-2.5 px-3">
+                        {page.errorRequestsCount > 0 ? (
+                          <span className="text-rose-400 font-medium">
+                            {page.errorRequestsCount} error
                           </span>
-                        </td>
-                        <td className="py-3 px-4 max-w-sm truncate text-slate-200">
-                          <span title={page.url}>{page.url}</span>
-                        </td>
-                        <td className="py-3 px-4 max-w-xs truncate text-slate-400 font-sans">
-                          {page.pageTitle}
-                        </td>
-                        <td className="py-3 px-4 text-slate-400">
-                          {(page.durationMs / 1000).toFixed(2)}s
-                        </td>
-                        <td className="py-3 px-4">
-                          {page.errorRequestsCount > 0 ? (
-                            <span className="text-red-400 font-bold bg-red-950/80 px-2 py-0.5 rounded border border-red-900">
-                              {page.errorRequestsCount} error
-                            </span>
-                          ) : (
-                            <span className="text-emerald-400">0 error</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-right font-sans">
-                          <button
-                            onClick={() => {
-                              setSearchTerm(page.url);
-                              setActiveTab("requests");
-                            }}
-                            className="bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2.5 py-1 rounded text-[11px] transition"
-                          >
-                            Lihat Traffic
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        ) : (
+                          <span className="text-zinc-500">0</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
 
-        {/* TAB 1: DIAGNOSTICS */}
+        {/* TAB: DIAGNOSTICS */}
         {activeTab === "diagnostics" && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {scan.diagnostics.length === 0 ? (
-              <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center">
-                <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
-                <h3 className="text-lg font-semibold text-white">Tidak Ditemukan Error Kritis</h3>
-                <p className="text-sm text-slate-400 max-w-md mx-auto mt-1">
-                  Website berjalan stabil. Seluruh API dan eksekusi skrip browser berhasil tanpa kendala HTTP 4xx/5xx atau JS crash.
+              <div className="border border-zinc-800 bg-[#0c0e14] rounded-lg p-8 text-center space-y-2">
+                <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
+                <h3 className="text-sm font-semibold text-zinc-200">No Critical Anomalies Found</h3>
+                <p className="text-xs text-zinc-500 max-w-md mx-auto">
+                  All inspected API requests and page execution scripts ran normally without 4xx/5xx status codes or runtime exceptions.
                 </p>
               </div>
             ) : (
               scan.diagnostics.map((item, idx) => (
                 <div
                   key={idx}
-                  className={`bg-slate-900 border rounded-xl p-5 space-y-3 ${
+                  className={`border rounded-lg p-4 space-y-3 bg-[#0c0e14] ${
                     item.severity === "CRITICAL"
-                      ? "border-red-900/80 bg-red-950/20"
+                      ? "border-rose-900/60"
                       : item.severity === "HIGH"
-                      ? "border-amber-900/80 bg-amber-950/20"
-                      : "border-slate-800"
+                      ? "border-amber-900/60"
+                      : "border-zinc-800"
                   }`}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span
-                        className={`px-2.5 py-0.5 rounded text-xs font-bold ${
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
                           item.severity === "CRITICAL"
-                            ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                            ? "bg-rose-950/70 text-rose-300 border border-rose-900/80"
                             : item.severity === "HIGH"
-                            ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                            : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                            ? "bg-amber-950/70 text-amber-300 border border-amber-900/80"
+                            : "bg-sky-950/70 text-sky-300 border border-sky-900/80"
                         }`}
                       >
                         {item.severity}
                       </span>
-                      <span className="text-xs font-mono text-slate-400">[{item.category}]</span>
-                      <h4 className="text-base font-semibold text-white">{item.title}</h4>
+                      <span className="text-xs font-mono text-zinc-500">[{item.category}]</span>
+                      <h4 className="text-xs sm:text-sm font-semibold text-zinc-100">
+                        {item.title}
+                      </h4>
                     </div>
+
                     {item.status && (
-                      <span className="text-xs font-mono bg-slate-800 px-2.5 py-1 rounded text-red-300">
-                        Status Code: {item.status}
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-rose-300 border border-zinc-800">
+                        Status {item.status}
                       </span>
                     )}
                   </div>
 
                   {item.endpoint && (
-                    <div className="text-xs font-mono bg-slate-950 p-2.5 rounded border border-slate-800 text-slate-300 break-all">
-                      <span className="text-slate-500 mr-2">Endpoint:</span>
+                    <div className="bg-[#090a0f] p-2 rounded border border-zinc-800/80 font-mono text-xs text-zinc-300 break-all select-all">
+                      <span className="text-zinc-500 mr-2">endpoint:</span>
                       {item.endpoint}
                     </div>
                   )}
 
-                  <div className="text-sm text-slate-300">{item.details}</div>
+                  <p className="text-xs text-zinc-300 leading-relaxed font-sans">{item.details}</p>
 
-                  {/* Payload & Response preview */}
                   {(item.payload || item.response) && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                       {item.payload && (
-                        <div className="bg-slate-950 rounded-lg p-3 border border-slate-800 text-xs">
-                          <span className="text-slate-400 font-semibold block mb-1">
+                        <div className="bg-[#090a0f] rounded border border-zinc-800/80 p-2.5 text-xs font-mono">
+                          <span className="text-[11px] text-zinc-500 font-sans block mb-1">
                             Lemparan (Request Payload):
                           </span>
-                          <pre className="font-mono text-slate-300 overflow-x-auto max-h-40">
+                          <pre className="text-zinc-300 overflow-x-auto max-h-36 text-[11px]">
                             {typeof item.payload === "string" ? item.payload : JSON.stringify(item.payload, null, 2)}
                           </pre>
                         </div>
                       )}
                       {item.response && (
-                        <div className="bg-slate-950 rounded-lg p-3 border border-slate-800 text-xs">
-                          <span className="text-slate-400 font-semibold block mb-1">
+                        <div className="bg-[#090a0f] rounded border border-zinc-800/80 p-2.5 text-xs font-mono">
+                          <span className="text-[11px] text-zinc-500 font-sans block mb-1">
                             Balasan (Response Body):
                           </span>
-                          <pre className="font-mono text-slate-300 overflow-x-auto max-h-40">
+                          <pre className="text-zinc-300 overflow-x-auto max-h-36 text-[11px]">
                             {typeof item.response === "string" ? item.response : JSON.stringify(item.response, null, 2)}
                           </pre>
                         </div>
@@ -552,9 +588,9 @@ ${scan.diagnostics
                     </div>
                   )}
 
-                  <div className="bg-indigo-950/40 border border-indigo-900/50 rounded-lg p-3 text-xs text-indigo-200">
-                    <span className="font-semibold text-indigo-300 block mb-0.5">
-                      💡 Solusi / Rekomendasi Perbaikan:
+                  <div className="bg-zinc-900/60 border border-zinc-800 rounded p-2.5 text-xs text-zinc-300">
+                    <span className="text-[11px] text-zinc-400 font-medium block mb-0.5">
+                      💡 Solusi / Tindakan Perbaikan:
                     </span>
                     {item.recommendation}
                   </div>
@@ -564,128 +600,137 @@ ${scan.diagnostics
           </div>
         )}
 
-        {/* TAB 2: REQUESTS TABLE */}
+        {/* TAB: REQUESTS */}
         {activeTab === "requests" && (
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between print:hidden">
+              <div className="flex items-center gap-1 bg-[#0c0e14] border border-zinc-800 p-0.5 rounded-lg text-xs">
                 <button
                   onClick={() => setReqFilter("errors")}
-                  className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+                  className={`px-2.5 py-1 rounded-md transition ${
                     reqFilter === "errors"
-                      ? "bg-red-600/30 text-red-300 border border-red-500/50"
-                      : "bg-slate-900 text-slate-400 border border-slate-800"
+                      ? "bg-zinc-800 text-rose-300 font-medium"
+                      : "text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
-                  Hanya Error ({scan.meta.errorRequestsCount})
+                  Errors Only ({scan.meta.errorRequestsCount})
                 </button>
                 <button
                   onClick={() => setReqFilter("api")}
-                  className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+                  className={`px-2.5 py-1 rounded-md transition ${
                     reqFilter === "api"
-                      ? "bg-indigo-600/30 text-indigo-300 border border-indigo-500/50"
-                      : "bg-slate-900 text-slate-400 border border-slate-800"
+                      ? "bg-zinc-800 text-zinc-100 font-medium"
+                      : "text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
-                  API Saja (Fetch/XHR)
+                  Fetch / XHR Only
                 </button>
                 <button
                   onClick={() => setReqFilter("all")}
-                  className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+                  className={`px-2.5 py-1 rounded-md transition ${
                     reqFilter === "all"
-                      ? "bg-slate-700 text-white border border-slate-600"
-                      : "bg-slate-900 text-slate-400 border border-slate-800"
+                      ? "bg-zinc-800 text-zinc-100 font-medium"
+                      : "text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
-                  Semua ({scan.requests.length})
+                  All ({scan.requests.length})
                 </button>
               </div>
 
-              <div className="relative w-full sm:w-72">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+              <div className="relative w-full sm:w-64">
+                <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-2.5" />
                 <input
                   type="text"
-                  placeholder="Cari URL, status, method..."
+                  placeholder="Filter path, method, status..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                  className="w-full bg-[#0c0e14] border border-zinc-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 font-mono focus:outline-none focus:border-zinc-600"
                 />
               </div>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow">
+            <div className="border border-zinc-800/80 rounded-lg overflow-hidden bg-[#0c0e14]">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-950/80 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-800">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-[#0e1017] text-zinc-400 font-sans border-b border-zinc-800 text-[11px]">
                     <tr>
-                      <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4">Method</th>
-                      <th className="py-3 px-4">Endpoint URL</th>
-                      <th className="py-3 px-4">Type</th>
-                      <th className="py-3 px-4">Duration</th>
-                      <th className="py-3 px-4 text-right">Detail</th>
+                      <th className="py-2.5 px-3 w-16">Status</th>
+                      <th className="py-2.5 px-3 w-16">Method</th>
+                      <th className="py-2.5 px-3">Endpoint Path / URL</th>
+                      <th className="py-2.5 px-3 w-20">Type</th>
+                      <th className="py-2.5 px-3 w-20 text-right">Duration</th>
+                      <th className="py-2.5 px-3 w-16 text-right font-sans print:hidden">Inspect</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60 font-mono">
+                  <tbody className="divide-y divide-zinc-800/60">
                     {filteredRequests.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-slate-500">
-                          Tidak ada data yang cocok.
+                        <td colSpan={6} className="py-8 text-center text-zinc-500 font-sans">
+                          No requests match the selected filter criteria.
                         </td>
                       </tr>
                     ) : (
                       filteredRequests.map((req, idx) => (
                         <tr
                           key={idx}
-                          className={`hover:bg-slate-800/50 transition cursor-pointer ${
-                            req.isError ? "bg-red-950/10" : ""
-                          }`}
                           onClick={() => {
                             setSelectedReq(req);
                             setDetailTab(req.requestPayload ? "payload" : "response");
                           }}
+                          className={`hover:bg-zinc-900/40 transition cursor-pointer ${
+                            req.isError ? "bg-rose-950/10" : ""
+                          }`}
                         >
-                          <td className="py-3 px-4">
+                          <td className="py-2.5 px-3">
                             {req.failed ? (
-                              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-red-900/60 text-red-300 border border-red-800">
-                                FAILED
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-900/80">
+                                FAIL
                               </span>
                             ) : req.status ? (
                               <span
-                                className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                                   req.status >= 500
-                                    ? "bg-red-900/60 text-red-300 border border-red-800"
+                                    ? "bg-rose-950 text-rose-300 border border-rose-900/80"
                                     : req.status >= 400
-                                    ? "bg-amber-900/60 text-amber-300 border border-amber-800"
-                                    : "bg-emerald-900/40 text-emerald-300 border border-emerald-800"
+                                    ? "bg-amber-950 text-amber-300 border border-amber-900/80"
+                                    : "bg-emerald-950/60 text-emerald-300 border border-emerald-900/60"
                                 }`}
                               >
                                 {req.status}
                               </span>
                             ) : (
-                              <span className="text-slate-500">-</span>
+                              <span className="text-zinc-600">-</span>
                             )}
                           </td>
-                          <td className="py-3 px-4 font-bold text-slate-300">{req.method}</td>
-                          <td className="py-3 px-4 max-w-md truncate text-slate-300">
-                            <span title={req.url}>{req.url}</span>
+
+                          <td className="py-2.5 px-3">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-zinc-900 border border-zinc-800 text-zinc-300">
+                              {req.method}
+                            </span>
                           </td>
-                          <td className="py-3 px-4 text-slate-400">
-                            <span className="bg-slate-800 px-2 py-0.5 rounded text-[10px]">
+
+                          <td className="py-2.5 px-3 max-w-md truncate text-zinc-300" title={req.url}>
+                            {req.url}
+                          </td>
+
+                          <td className="py-2.5 px-3 text-zinc-400">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800">
                               {req.resourceType}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-slate-400">
+
+                          <td className="py-2.5 px-3 text-right text-zinc-400 font-mono">
                             {req.durationMs !== null ? `${req.durationMs}ms` : "-"}
                           </td>
-                          <td className="py-3 px-4 text-right">
+
+                          <td className="py-2.5 px-3 text-right font-sans print:hidden">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedReq(req);
                                 setDetailTab(req.requestPayload ? "payload" : "response");
                               }}
-                              className="bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2.5 py-1 rounded text-[11px] font-sans transition"
+                              className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 text-[11px] transition"
                             >
                               Inspect
                             </button>
@@ -700,27 +745,27 @@ ${scan.diagnostics
           </div>
         )}
 
-        {/* TAB 3: CONSOLE */}
+        {/* TAB: CONSOLE LOGS */}
         {activeTab === "console" && (
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3 font-mono text-xs">
+          <div className="border border-zinc-800/80 rounded-lg p-4 bg-[#0c0e14] space-y-2.5 font-mono text-xs">
             {scan.consoleLogs.length === 0 && scan.pageErrors.length === 0 ? (
-              <div className="text-center py-8 text-slate-500 font-sans">
-                Tidak ada log console atau runtime exception.
+              <div className="text-center py-8 text-zinc-500 font-sans">
+                No console logs or uncaught runtime exceptions recorded.
               </div>
             ) : (
               <>
                 {scan.pageErrors.map((err) => (
                   <div
                     key={err.id}
-                    className="bg-red-950/40 border border-red-800/80 rounded-lg p-3 text-red-200 space-y-1"
+                    className="bg-rose-950/20 border border-rose-900/60 rounded p-3 text-rose-200 space-y-1"
                   >
-                    <div className="flex items-center gap-2 font-bold text-red-400 font-sans">
-                      <XCircle className="w-4 h-4 shrink-0" />
+                    <div className="flex items-center gap-1.5 font-bold text-rose-400 text-xs font-sans">
+                      <XCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>Uncaught Runtime Exception:</span>
                     </div>
-                    <div className="font-semibold">{err.message}</div>
+                    <div className="font-semibold text-xs">{err.message}</div>
                     {err.stack && (
-                      <pre className="text-[11px] text-red-300/80 overflow-x-auto whitespace-pre-wrap pt-1">
+                      <pre className="text-[10px] text-rose-300/80 overflow-x-auto whitespace-pre-wrap pt-1 font-mono">
                         {err.stack}
                       </pre>
                     )}
@@ -730,23 +775,25 @@ ${scan.diagnostics
                 {scan.consoleLogs.map((log) => (
                   <div
                     key={log.id}
-                    className={`p-3 rounded-lg border flex flex-col gap-1 ${
+                    className={`p-2.5 rounded border flex flex-col gap-0.5 ${
                       log.type === "error"
-                        ? "bg-red-950/20 border-red-900/60 text-red-300"
+                        ? "bg-rose-950/20 border-rose-900/60 text-rose-300"
                         : log.type === "warning"
                         ? "bg-amber-950/20 border-amber-900/60 text-amber-300"
-                        : "bg-slate-950 border-slate-800 text-slate-300"
+                        : "bg-[#090a0f] border-zinc-800 text-zinc-300"
                     }`}
                   >
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 font-sans">
-                      <span className="uppercase font-bold tracking-wider">[{log.type}]</span>
+                    <div className="flex items-center justify-between text-[10px] text-zinc-500 font-sans">
+                      <span className="uppercase font-bold tracking-wider font-mono">
+                        [{log.type}]
+                      </span>
                       {log.location?.url && (
-                        <span className="truncate max-w-sm">
+                        <span className="truncate max-w-sm font-mono">
                           {log.location.url}:{log.location.lineNumber}
                         </span>
                       )}
                     </div>
-                    <div className="whitespace-pre-wrap break-all">{log.text}</div>
+                    <div className="whitespace-pre-wrap break-all text-xs">{log.text}</div>
                   </div>
                 ))}
               </>
@@ -754,94 +801,96 @@ ${scan.diagnostics
           </div>
         )}
 
-        {/* Modal: Deep Request Inspection */}
+        {/* Modal: Deep Request Inspector */}
         {selectedReq && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
-              {/* Header */}
-              <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-3">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-sm print:hidden">
+            <div className="bg-[#0c0e14] border border-zinc-800 rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              <div className="p-3.5 border-b border-zinc-800 bg-[#0e1017] flex items-center justify-between">
+                <div className="flex items-center gap-2">
                   <span
-                    className={`px-2 py-0.5 rounded text-xs font-mono font-bold ${
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
                       selectedReq.failed || (selectedReq.status && selectedReq.status >= 400)
-                        ? "bg-red-900/60 text-red-300 border border-red-800"
-                        : "bg-emerald-900/40 text-emerald-300 border border-emerald-800"
+                        ? "bg-rose-950 text-rose-300 border border-rose-900/80"
+                        : "bg-emerald-950 text-emerald-300 border border-emerald-900/80"
                     }`}
                   >
                     {selectedReq.failed ? "FAILED" : selectedReq.status || "STATUS ?"}
                   </span>
-                  <span className="font-mono font-bold text-sm text-slate-200">
+                  <span className="font-mono font-semibold text-xs text-zinc-200">
                     {selectedReq.method}
                   </span>
-                  <span className="text-xs text-slate-400 font-mono">
+                  <span className="text-zinc-500 text-xs font-mono">
                     ({selectedReq.durationMs ? `${selectedReq.durationMs}ms` : "-"})
                   </span>
                 </div>
                 <button
                   onClick={() => setSelectedReq(null)}
-                  className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                  className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Subtabs for Detail */}
-              <div className="flex border-b border-slate-800 px-4 bg-slate-950/50 gap-4 text-xs font-medium">
+              <div className="flex border-b border-zinc-800 px-4 bg-[#0a0c12] gap-4 text-xs font-mono">
                 <button
                   onClick={() => setDetailTab("payload")}
-                  className={`py-2.5 border-b-2 transition ${
+                  className={`py-2 border-b-2 transition ${
                     detailTab === "payload"
-                      ? "border-indigo-500 text-indigo-400"
-                      : "border-transparent text-slate-400 hover:text-slate-200"
+                      ? "border-zinc-200 text-zinc-100"
+                      : "border-transparent text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
                   Lemparan (Payload)
                 </button>
                 <button
                   onClick={() => setDetailTab("response")}
-                  className={`py-2.5 border-b-2 transition ${
+                  className={`py-2 border-b-2 transition ${
                     detailTab === "response"
-                      ? "border-indigo-500 text-indigo-400"
-                      : "border-transparent text-slate-400 hover:text-slate-200"
+                      ? "border-zinc-200 text-zinc-100"
+                      : "border-transparent text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
-                  Balasan (Response Body)
+                  Balasan (Response)
                 </button>
                 <button
                   onClick={() => setDetailTab("params")}
-                  className={`py-2.5 border-b-2 transition ${
+                  className={`py-2 border-b-2 transition ${
                     detailTab === "params"
-                      ? "border-indigo-500 text-indigo-400"
-                      : "border-transparent text-slate-400 hover:text-slate-200"
+                      ? "border-zinc-200 text-zinc-100"
+                      : "border-transparent text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
-                  Query Parameters
+                  Query Params
                 </button>
                 <button
                   onClick={() => setDetailTab("headers")}
-                  className={`py-2.5 border-b-2 transition ${
+                  className={`py-2 border-b-2 transition ${
                     detailTab === "headers"
-                      ? "border-indigo-500 text-indigo-400"
-                      : "border-transparent text-slate-400 hover:text-slate-200"
+                      ? "border-zinc-200 text-zinc-100"
+                      : "border-transparent text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
                   Headers
                 </button>
               </div>
 
-              {/* Body */}
-              <div className="p-5 overflow-y-auto space-y-4 text-xs font-mono">
-                {/* URL */}
-                <div className="bg-slate-950 p-2.5 rounded border border-slate-800 text-slate-200 break-all select-all">
-                  <span className="text-slate-500 mr-2 font-sans">Full URL:</span>
+              <div className="p-4 overflow-y-auto space-y-3 text-xs font-mono">
+                <div className="bg-[#090a0f] p-2.5 rounded border border-zinc-800 text-zinc-300 break-all select-all">
+                  <span className="text-zinc-500 mr-2 font-sans">Full URL:</span>
                   {selectedReq.url}
                 </div>
 
-                {/* Subtab Content: Payload */}
+                {selectedReq.failed && (
+                  <div className="bg-rose-950/20 border border-rose-900/60 p-2.5 rounded text-rose-300 font-sans">
+                    <span className="font-semibold block mb-0.5">Network Failure Cause:</span>
+                    {selectedReq.failureReason || "Connection terminated / aborted"}
+                  </div>
+                )}
+
                 {detailTab === "payload" && (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between font-sans">
-                      <span className="font-semibold text-slate-300">Request Body / Lemparan:</span>
+                      <span className="font-medium text-zinc-400">Request Body / Payload:</span>
                       {selectedReq.requestPayload && (
                         <button
                           onClick={() =>
@@ -852,34 +901,33 @@ ${scan.diagnostics
                               "payload"
                             )
                           }
-                          className="text-[11px] flex items-center gap-1 text-indigo-400 hover:text-indigo-300"
+                          className="text-[11px] flex items-center gap-1 text-zinc-400 hover:text-white"
                         >
-                          {copiedPayload ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                          {copiedPayload ? "Copied" : "Copy"}
+                          {copiedPayload ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          {copiedPayload ? "Copied" : "Copy JSON"}
                         </button>
                       )}
                     </div>
-                    <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 max-h-96 overflow-y-auto">
+                    <div className="bg-[#090a0f] border border-zinc-800 rounded-lg p-3 max-h-96 overflow-y-auto">
                       {selectedReq.requestPayload ? (
-                        <pre className="text-slate-300 text-[11px] whitespace-pre-wrap break-all">
+                        <pre className="text-zinc-300 text-[11px] whitespace-pre-wrap break-all">
                           {typeof selectedReq.requestPayload === "string"
                             ? selectedReq.requestPayload
                             : JSON.stringify(selectedReq.requestPayload, null, 2)}
                         </pre>
                       ) : (
-                        <span className="text-slate-600 font-sans">
-                          (Tidak ada payload dikirimkan / Request GET)
+                        <span className="text-zinc-600 font-sans">
+                          (No payload body / Standard GET request)
                         </span>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* Subtab Content: Response */}
                 {detailTab === "response" && (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between font-sans">
-                      <span className="font-semibold text-slate-300">Response Body / Balasan:</span>
+                      <span className="font-medium text-zinc-400">Response Body / Balasan:</span>
                       {selectedReq.responseBody && (
                         <button
                           onClick={() =>
@@ -890,76 +938,74 @@ ${scan.diagnostics
                               "response"
                             )
                           }
-                          className="text-[11px] flex items-center gap-1 text-indigo-400 hover:text-indigo-300"
+                          className="text-[11px] flex items-center gap-1 text-zinc-400 hover:text-white"
                         >
-                          {copiedResponse ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                          {copiedResponse ? "Copied" : "Copy"}
+                          {copiedResponse ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          {copiedResponse ? "Copied" : "Copy JSON"}
                         </button>
                       )}
                     </div>
-                    <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 max-h-96 overflow-y-auto">
+                    <div className="bg-[#090a0f] border border-zinc-800 rounded-lg p-3 max-h-96 overflow-y-auto">
                       {selectedReq.responseBody ? (
-                        <pre className="text-slate-300 text-[11px] whitespace-pre-wrap break-all">
+                        <pre className="text-zinc-300 text-[11px] whitespace-pre-wrap break-all">
                           {typeof selectedReq.responseBody === "string"
                             ? selectedReq.responseBody
                             : JSON.stringify(selectedReq.responseBody, null, 2)}
                         </pre>
                       ) : (
-                        <span className="text-slate-600 font-sans">
-                          (Tidak ada response body atau binary)
+                        <span className="text-zinc-600 font-sans">
+                          (Empty response body or binary content)
                         </span>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* Subtab Content: Query Params */}
                 {detailTab === "params" && (
-                  <div className="space-y-2">
-                    <span className="font-semibold text-slate-300 font-sans block">
+                  <div className="space-y-1.5">
+                    <span className="font-medium text-zinc-400 font-sans block">
                       Parsed Query Parameters:
                     </span>
-                    <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 max-h-96 overflow-y-auto">
+                    <div className="bg-[#090a0f] border border-zinc-800 rounded-lg p-3 max-h-96 overflow-y-auto">
                       {selectedReq.queryParams && Object.keys(selectedReq.queryParams).length > 0 ? (
-                        <table className="w-full text-left text-xs">
+                        <table className="w-full text-left text-xs font-mono">
                           <thead>
-                            <tr className="text-slate-500 border-b border-slate-800">
-                              <th className="pb-2">Key</th>
-                              <th className="pb-2">Value</th>
+                            <tr className="text-zinc-500 border-b border-zinc-800">
+                              <th className="pb-1.5">Key</th>
+                              <th className="pb-1.5">Value</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-800/60">
+                          <tbody className="divide-y divide-zinc-800/60">
                             {Object.entries(selectedReq.queryParams).map(([k, v]) => (
                               <tr key={k}>
-                                <td className="py-2 text-indigo-300 font-bold">{k}</td>
-                                <td className="py-2 text-slate-300 break-all">{v}</td>
+                                <td className="py-1.5 text-zinc-300 font-medium">{k}</td>
+                                <td className="py-1.5 text-zinc-400 break-all">{v}</td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
                       ) : (
-                        <span className="text-slate-600 font-sans">(Tidak ada query parameter pada URL)</span>
+                        <span className="text-zinc-600 font-sans">(No query parameters in URL)</span>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* Subtab Content: Headers */}
                 {detailTab === "headers" && (
-                  <div className="space-y-4">
+                  <div className="space-y-3 font-mono">
                     <div>
-                      <span className="text-slate-400 font-sans font-semibold block mb-1">
+                      <span className="text-zinc-500 font-sans text-xs block mb-1">
                         Request Headers:
                       </span>
-                      <pre className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-[11px] text-slate-300 overflow-x-auto">
+                      <pre className="bg-[#090a0f] border border-zinc-800 rounded-lg p-2.5 text-[11px] text-zinc-300 overflow-x-auto">
                         {JSON.stringify(selectedReq.requestHeaders, null, 2)}
                       </pre>
                     </div>
                     <div>
-                      <span className="text-slate-400 font-sans font-semibold block mb-1">
+                      <span className="text-zinc-500 font-sans text-xs block mb-1">
                         Response Headers:
                       </span>
-                      <pre className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-[11px] text-slate-300 overflow-x-auto">
+                      <pre className="bg-[#090a0f] border border-zinc-800 rounded-lg p-2.5 text-[11px] text-zinc-300 overflow-x-auto">
                         {JSON.stringify(selectedReq.responseHeaders, null, 2)}
                       </pre>
                     </div>
@@ -967,40 +1013,39 @@ ${scan.diagnostics
                 )}
               </div>
 
-              {/* Footer */}
-              <div className="p-4 border-t border-slate-800 flex justify-end">
+              <div className="p-3 border-t border-zinc-800 bg-[#0e1017] flex justify-end">
                 <button
                   onClick={() => setSelectedReq(null)}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-xs font-sans transition"
+                  className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-sans transition"
                 >
-                  Tutup
+                  Close
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Modal: Screenshot */}
+        {/* Screenshot Modal */}
         {showScreenshot && scan.meta.screenshot && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
-              <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-                <span className="font-semibold text-sm text-slate-200">
-                  Screenshot Halaman: {scan.meta.targetUrl}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm print:hidden">
+            <div className="bg-[#0c0e14] border border-zinc-800 rounded-xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+              <div className="p-3.5 border-b border-zinc-800 flex items-center justify-between">
+                <span className="font-semibold text-xs text-zinc-200 font-mono">
+                  Inspect Page Visual Capture
                 </span>
                 <button
                   onClick={() => setShowScreenshot(false)}
-                  className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                  className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="p-4 overflow-auto flex items-center justify-center bg-slate-950">
+              <div className="p-4 overflow-auto flex items-center justify-center bg-[#090a0f]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={scan.meta.screenshot}
                   alt="Page screenshot"
-                  className="max-h-[75vh] object-contain rounded border border-slate-800"
+                  className="max-h-[75vh] object-contain rounded border border-zinc-800"
                 />
               </div>
             </div>
@@ -1015,10 +1060,10 @@ export default function ReportPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin" />
-            <p className="text-sm text-slate-400">Memuat laporan...</p>
+        <main className="min-h-screen bg-[#090a0f] text-zinc-100 flex items-center justify-center font-mono text-xs">
+          <div className="flex flex-col items-center gap-2">
+            <RefreshCw className="w-5 h-5 text-zinc-400 animate-spin" />
+            <p className="text-zinc-500">Initializing report viewer...</p>
           </div>
         </main>
       }

@@ -4,13 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
-  CheckCircle,
+  CheckCircle2,
   XCircle,
   ExternalLink,
   Copy,
   Check,
-  ChevronDown,
-  ChevronUp,
   Shield,
   Cookie,
   Key,
@@ -36,6 +34,9 @@ import {
   Bot,
   LogOut,
   Lock,
+  ChevronRight,
+  SlidersHorizontal,
+  Code2,
 } from "lucide-react";
 
 interface RequestItem {
@@ -175,32 +176,6 @@ export default function Home() {
   const [fbSubmitting, setFbSubmitting] = useState(false);
   const [fbSuccess, setFbSuccess] = useState(false);
 
-  const handleSubmitFeedback = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!fbMessage.trim()) return;
-    setFbSubmitting(true);
-    try {
-      const res = await fetch("/api/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: fbEmail, message: fbMessage }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setFbSuccess(true);
-        setTimeout(() => {
-          setFbSuccess(false);
-          setShowFeedback(false);
-          setFbMessage("");
-        }, 1500);
-      }
-    } catch {
-      // silent
-    } finally {
-      setFbSubmitting(false);
-    }
-  };
-
   // User Auth state
   const [currentUser, setCurrentUser] = useState<{
     id: string;
@@ -301,6 +276,32 @@ export default function Home() {
     }
   };
 
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fbMessage.trim()) return;
+    setFbSubmitting(true);
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: fbEmail, message: fbMessage }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFbSuccess(true);
+        setTimeout(() => {
+          setFbSuccess(false);
+          setShowFeedback(false);
+          setFbMessage("");
+        }, 1500);
+      }
+    } catch {
+      // silent
+    } finally {
+      setFbSubmitting(false);
+    }
+  };
+
   const fetchHistory = async () => {
     setLoadingHistory(true);
     try {
@@ -324,22 +325,24 @@ export default function Home() {
   const loadPastScan = async (scanId: string) => {
     setLoading(true);
     setErrorMsg(null);
-    setShowHistory(false);
     try {
       const res = await fetch(`/api/scans/${scanId}`);
       const data = await res.json();
-      if (!data.success || !data.scan?.data) {
-        throw new Error(data.error || "Gagal memuat scan lama.");
+      if (data.success && data.scan) {
+        setResult(data.scan);
+        setUrl(data.scan.meta.targetUrl || "");
+        setCrawlMode(data.scan.meta.crawlMode || "single");
+        setShowHistory(false);
+        if (data.scan.meta.crawlMode === "multi" && data.scan.meta.crawledPages?.length > 1) {
+          setActiveTab("crawled");
+        } else if (data.scan.diagnostics?.length > 0) {
+          setActiveTab("diagnostics");
+        } else {
+          setActiveTab("requests");
+        }
       }
-      setResult(data.scan.data);
-      setUrl(data.scan.data.meta.targetUrl);
-      if (data.scan.data.diagnostics?.length > 0) {
-        setActiveTab("diagnostics");
-      } else {
-        setActiveTab("requests");
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || "Gagal memuat data scan.");
+    } catch {
+      setErrorMsg("Gagal memuat riwayat scan.");
     } finally {
       setLoading(false);
     }
@@ -484,86 +487,90 @@ ${result.diagnostics
   const getMethodBadgeClass = (method: string) => {
     switch (method.toUpperCase()) {
       case "GET":
-        return "text-blue-400 bg-blue-950/40 border-blue-800/60";
+        return "text-sky-400 bg-sky-950/50 border-sky-900/60";
       case "POST":
-        return "text-emerald-400 bg-emerald-950/40 border-emerald-800/60";
+        return "text-emerald-400 bg-emerald-950/50 border-emerald-900/60";
       case "PUT":
-        return "text-amber-400 bg-amber-950/40 border-amber-800/60";
+      case "PATCH":
+        return "text-amber-400 bg-amber-950/50 border-amber-900/60";
       case "DELETE":
-        return "text-rose-400 bg-rose-950/40 border-rose-800/60";
+        return "text-rose-400 bg-rose-950/50 border-rose-900/60";
       default:
-        return "text-slate-300 bg-slate-800 border-slate-700";
+        return "text-zinc-400 bg-zinc-900 border-zinc-800";
     }
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 font-sans">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <header className="border-b border-slate-800 pb-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
+    <main className="min-h-screen bg-[#090a0f] text-zinc-100 font-sans selection:bg-zinc-800 selection:text-white">
+      {/* Top Application Bar */}
+      <nav className="border-b border-zinc-800/80 bg-[#090a0f]/90 backdrop-blur sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+          {/* Brand */}
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <span className="p-2 bg-indigo-600/20 text-indigo-400 rounded-lg border border-indigo-500/30">
-                <Activity className="w-6 h-6" />
-              </span>
-              <h1 className="text-2xl font-bold tracking-tight text-white">
-                InspectLog & API Error Analyzer
-              </h1>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 ring-4 ring-emerald-500/20"></span>
+              <span className="font-semibold text-sm tracking-tight text-zinc-100 font-mono">InspectLog</span>
             </div>
-            <p className="text-slate-400 text-sm mt-1">
-              Deep inspection: lemparan (payload), balasan (response), query parameters, dan multi-page crawler.
-            </p>
+            <span className="hidden sm:inline-block text-[11px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">
+              v1.0-beta
+            </span>
+            <span className="hidden md:inline-block text-xs text-zinc-500">
+              Web & API Network Runtime Inspector
+            </span>
           </div>
 
+          {/* Nav Actions */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
                 fetchHistory();
                 setShowHistory(true);
               }}
-              className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 px-3.5 py-2 rounded-lg text-xs font-medium border border-slate-700 transition"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-300 hover:text-white bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 transition"
             >
-              <History className="w-4 h-4 text-indigo-400" />
-              Riwayat ({historyList.length})
+              <History className="w-3.5 h-3.5 text-zinc-400" />
+              <span>History</span>
+              <span className="text-[10px] text-zinc-400 font-mono">({historyList.length})</span>
             </button>
 
             <Link
               href="/monitoring"
-              className="inline-flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 px-3 py-2 rounded-lg text-xs font-semibold transition"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-300 hover:text-white bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 transition"
             >
-              <Bell className="w-3.5 h-3.5 text-rose-400" />
-              Auto Monitor (Pro)
+              <Bell className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Monitor</span>
+              <span className="text-[10px] uppercase font-bold text-amber-400 px-1 rounded bg-amber-950/60 border border-amber-900/50">Pro</span>
             </Link>
 
             <button
               onClick={() => setShowFeedback(true)}
-              className="inline-flex items-center gap-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-3 py-2 rounded-lg text-xs font-medium transition"
+              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition"
             >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-              Feedback (Beta)
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Feedback</span>
             </button>
 
+            <div className="h-4 w-px bg-zinc-800 hidden sm:block"></div>
+
             {currentUser ? (
-              <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 pl-1.5 pr-3 py-1 rounded-full text-xs shadow-sm">
+              <div className="flex items-center gap-2 bg-zinc-900/90 border border-zinc-800 pl-1.5 pr-2.5 py-1 rounded-md text-xs">
                 {currentUser.avatar_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={currentUser.avatar_url} alt={currentUser.name} className="w-6 h-6 rounded-full object-cover" />
+                  <img src={currentUser.avatar_url} alt={currentUser.name} className="w-5 h-5 rounded-full object-cover" />
                 ) : (
-                  <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-white text-[11px]">
+                  <div className="w-5 h-5 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-mono text-[10px] text-zinc-300">
                     {currentUser.name.charAt(0).toUpperCase()}
                   </div>
                 )}
-                <span className="font-semibold text-white max-w-[120px] truncate">{currentUser.name}</span>
-                <span
-                  className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
-                    currentUser.role === "pro"
-                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                      : "bg-slate-800 text-slate-400"
-                  }`}
-                >
+                <span className="font-medium text-zinc-200 max-w-[100px] truncate">{currentUser.name}</span>
+                <span className="text-[10px] uppercase font-mono px-1 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
                   {currentUser.role}
                 </span>
-                <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 p-0.5 ml-0.5" title="Logout">
+                <button
+                  onClick={handleLogout}
+                  className="text-zinc-500 hover:text-rose-400 p-0.5 transition ml-0.5"
+                  title="Sign out"
+                >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -573,586 +580,597 @@ ${result.diagnostics
                   setAuthTab("login");
                   setShowAuthModal(true);
                 }}
-                className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition shadow-md shadow-indigo-600/20"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-100 hover:bg-white text-zinc-950 transition border border-zinc-200 shadow-sm"
               >
                 <User className="w-3.5 h-3.5" />
-                Masuk / Daftar
+                <span>Sign In</span>
               </button>
             )}
 
             {result && (
-              <>
+              <div className="flex items-center gap-1 pl-1">
                 <button
                   onClick={copyShareLink}
-                  className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 px-3.5 py-2 rounded-lg text-xs font-medium border border-slate-700 transition"
+                  title="Copy shareable link"
+                  className="p-1.5 rounded-md text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition"
                 >
-                  {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4 text-indigo-400" />}
-                  {copiedLink ? "Link Disalin" : "Share Link"}
+                  {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
                 </button>
-
                 <button
                   onClick={exportReport}
-                  className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 px-3.5 py-2 rounded-lg text-xs font-medium border border-slate-700 transition"
+                  title="Export JSON report"
+                  className="p-1.5 rounded-md text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition font-mono text-[11px]"
                 >
-                  <FileJson className="w-4 h-4 text-indigo-400" />
-                  JSON
+                  <FileJson className="w-3.5 h-3.5" />
                 </button>
-              </>
+              </div>
             )}
           </div>
-        </header>
+        </div>
+      </nav>
 
-        {/* Input Form Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-          <form onSubmit={handleInspect} className="space-y-4">
-            {/* Top row: URL + Mode + Inspect CTA */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
+      {/* Main Workspace Frame */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Terminal Input Station */}
+        <section className="border border-zinc-800/80 bg-zinc-950/70 rounded-xl overflow-hidden shadow-sm">
+          <form onSubmit={handleInspect} className="divide-y divide-zinc-800/80">
+            {/* Primary Command Input Bar */}
+            <div className="p-3 sm:p-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+              <div className="relative flex-1 flex items-center">
+                <div className="absolute left-3.5 text-zinc-500 font-mono text-xs select-none">
+                  url:
+                </div>
                 <input
                   type="text"
-                  placeholder="https://example.com atau https://my-store.com/checkout"
+                  placeholder="https://example.com/checkout or https://api.myproject.com/v1"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                  className="w-full bg-[#0d0f17] border border-zinc-800 focus:border-zinc-500 rounded-lg pl-12 pr-4 py-2.5 text-zinc-100 placeholder-zinc-600 font-mono text-xs sm:text-sm focus:outline-none transition"
                 />
               </div>
 
-              {/* Mode Switcher: Single vs Multi */}
-              <div className="flex items-center bg-slate-950 border border-slate-700 rounded-lg p-1 text-xs">
+              {/* Mode Control */}
+              <div className="flex items-center bg-[#0d0f17] border border-zinc-800 rounded-lg p-0.5 text-xs">
                 <button
                   type="button"
                   onClick={() => setCrawlMode("single")}
-                  className={`px-3 py-2 rounded-md font-medium transition ${
+                  className={`px-3 py-1.5 rounded-md font-medium transition ${
                     crawlMode === "single"
-                      ? "bg-indigo-600 text-white shadow-sm"
-                      : "text-slate-400 hover:text-slate-200"
+                      ? "bg-zinc-800 text-white shadow-sm"
+                      : "text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
-                  1 Halaman
+                  Single Page
                 </button>
                 <button
                   type="button"
                   onClick={() => setCrawlMode("multi")}
-                  className={`px-3 py-2 rounded-md font-medium transition flex items-center gap-1 ${
+                  className={`px-3 py-1.5 rounded-md font-medium transition flex items-center gap-1.5 ${
                     crawlMode === "multi"
-                      ? "bg-indigo-600 text-white shadow-sm"
-                      : "text-slate-400 hover:text-slate-200"
+                      ? "bg-zinc-800 text-white shadow-sm"
+                      : "text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
                   <Compass className="w-3.5 h-3.5" />
-                  Crawler (Multi)
+                  Crawler
                 </button>
               </div>
 
-              {/* Max Pages selector if multi */}
+              {/* Page limit selector */}
               {crawlMode === "multi" && (
-                <div className="w-full sm:w-36 flex items-center bg-slate-950 border border-slate-700 rounded-lg px-3">
-                  <span className="text-xs text-slate-400 mr-2">Limit:</span>
+                <div className="flex items-center bg-[#0d0f17] border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs">
+                  <span className="text-zinc-500 mr-2 font-mono">max:</span>
                   <select
                     value={maxPages}
                     onChange={(e) => setMaxPages(Number(e.target.value))}
-                    className="bg-transparent text-sm text-slate-200 focus:outline-none w-full py-3"
+                    className="bg-transparent text-zinc-200 focus:outline-none font-mono text-xs cursor-pointer"
                   >
-                    <option value={3}>3 Halaman</option>
-                    <option value={5}>5 Halaman</option>
-                    <option value={10}>10 Halaman</option>
+                    <option value={3} className="bg-zinc-900">3 pages</option>
+                    <option value={5} className="bg-zinc-900">5 pages</option>
+                    <option value={10} className="bg-zinc-900">10 pages</option>
                   </select>
                 </div>
               )}
 
+              {/* Execution CTA */}
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800/50 text-white font-medium px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition min-w-[140px] shadow-lg shadow-indigo-600/20"
+                className="bg-zinc-100 hover:bg-white disabled:bg-zinc-800 disabled:text-zinc-600 text-zinc-950 font-medium px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 text-xs transition border border-zinc-200 shadow-sm min-w-[120px]"
               >
                 {loading ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                     <span>{crawlMode === "multi" ? "Crawling..." : "Inspecting..."}</span>
                   </>
                 ) : (
                   <>
-                    <span>Inspect Now</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <span>Inspect Target</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </>
                 )}
               </button>
             </div>
 
-            {/* Auth Mode Switcher */}
-            <div className="pt-2 border-t border-slate-800/70">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  <Shield className="w-3.5 h-3.5 text-indigo-400" />
-                  Mode Akses / Autentikasi
+            {/* Authentication & Access Options Strip */}
+            <div className="p-3 sm:px-4 bg-[#0a0c13] flex flex-col gap-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+                  <Shield className="w-3.5 h-3.5 text-zinc-500" />
+                  <span className="font-medium">Access & Auth Context:</span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode("none")}
+                    className={`px-2.5 py-1 rounded text-xs transition font-mono ${
+                      authMode === "none"
+                        ? "bg-zinc-800 text-zinc-100 border border-zinc-700"
+                        : "text-zinc-400 hover:text-zinc-200 border border-transparent"
+                    }`}
+                  >
+                    Public
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode("cookies")}
+                    className={`px-2.5 py-1 rounded text-xs transition font-mono flex items-center gap-1 ${
+                      authMode === "cookies"
+                        ? "bg-zinc-800 text-zinc-100 border border-zinc-700"
+                        : "text-zinc-400 hover:text-zinc-200 border border-transparent"
+                    }`}
+                  >
+                    <Cookie className="w-3 h-3 text-amber-400" />
+                    Cookies
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode("headers")}
+                    className={`px-2.5 py-1 rounded text-xs transition font-mono flex items-center gap-1 ${
+                      authMode === "headers"
+                        ? "bg-zinc-800 text-zinc-100 border border-zinc-700"
+                        : "text-zinc-400 hover:text-zinc-200 border border-transparent"
+                    }`}
+                  >
+                    <Key className="w-3 h-3 text-sky-400" />
+                    Headers / Token
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode("loginFlow")}
+                    className={`px-2.5 py-1 rounded text-xs transition font-mono flex items-center gap-1 ${
+                      authMode === "loginFlow"
+                        ? "bg-zinc-800 text-zinc-100 border border-zinc-700"
+                        : "text-zinc-400 hover:text-zinc-200 border border-transparent"
+                    }`}
+                  >
+                    <Layers className="w-3 h-3 text-purple-400" />
+                    Auto-Login Form
+                  </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setAuthMode("none")}
-                  className={`p-2.5 rounded-lg text-xs font-medium border text-left transition flex items-center gap-2 ${
-                    authMode === "none"
-                      ? "bg-indigo-950/60 border-indigo-500 text-indigo-200"
-                      : "bg-slate-950/50 border-slate-800 text-slate-400 hover:border-slate-700"
-                  }`}
-                >
-                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                  Tanpa Login (Publik)
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAuthMode("cookies")}
-                  className={`p-2.5 rounded-lg text-xs font-medium border text-left transition flex items-center gap-2 ${
-                    authMode === "cookies"
-                      ? "bg-indigo-950/60 border-indigo-500 text-indigo-200"
-                      : "bg-slate-950/50 border-slate-800 text-slate-400 hover:border-slate-700"
-                  }`}
-                >
-                  <Cookie className="w-3.5 h-3.5 text-amber-400" />
-                  Cookie / Session
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAuthMode("headers")}
-                  className={`p-2.5 rounded-lg text-xs font-medium border text-left transition flex items-center gap-2 ${
-                    authMode === "headers"
-                      ? "bg-indigo-950/60 border-indigo-500 text-indigo-200"
-                      : "bg-slate-950/50 border-slate-800 text-slate-400 hover:border-slate-700"
-                  }`}
-                >
-                  <Key className="w-3.5 h-3.5 text-cyan-400" />
-                  Custom Headers / Token
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAuthMode("loginFlow")}
-                  className={`p-2.5 rounded-lg text-xs font-medium border text-left transition flex items-center gap-2 ${
-                    authMode === "loginFlow"
-                      ? "bg-indigo-950/60 border-indigo-500 text-indigo-200"
-                      : "bg-slate-950/50 border-slate-800 text-slate-400 hover:border-slate-700"
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5 text-purple-400" />
-                  Auto-Login Form
-                </button>
-              </div>
-
-              {/* Dynamic Auth Inputs */}
+              {/* Conditional Auth Inputs */}
               {authMode === "cookies" && (
-                <div className="mt-3 p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs space-y-2">
-                  <div className="text-slate-300 font-medium">
-                    Masukkan Cookies (string <code>session_id=abc; token=123</code> atau JSON array):
-                  </div>
+                <div className="pt-2">
                   <textarea
-                    rows={3}
+                    rows={2}
+                    placeholder="session_id=abcd1234ef; token=xyz..."
                     value={rawCookies}
                     onChange={(e) => setRawCookies(e.target.value)}
-                    placeholder="session_id=xyz987; connect.sid=s%3A..."
-                    className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 font-mono text-xs focus:ring-1 focus:ring-indigo-500"
+                    className="w-full bg-[#0d0f17] border border-zinc-800 rounded-md p-2.5 text-zinc-200 font-mono text-xs focus:outline-none focus:border-zinc-600"
                   />
                 </div>
               )}
 
               {authMode === "headers" && (
-                <div className="mt-3 p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs space-y-2">
-                  <div className="text-slate-300 font-medium">
-                    Masukkan Extra Headers (format JSON key-value):
-                  </div>
+                <div className="pt-2">
                   <textarea
                     rows={3}
+                    placeholder='{"Authorization": "Bearer ...", "X-Custom-Auth": "..."}'
                     value={rawHeaders}
                     onChange={(e) => setRawHeaders(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 font-mono text-xs focus:ring-1 focus:ring-indigo-500"
+                    className="w-full bg-[#0d0f17] border border-zinc-800 rounded-md p-2.5 text-zinc-200 font-mono text-xs focus:outline-none focus:border-zinc-600"
                   />
                 </div>
               )}
 
               {authMode === "loginFlow" && (
-                <div className="mt-3 p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="md:col-span-2">
-                    <label className="text-slate-300 block mb-1">Login URL</label>
-                    <input
-                      type="text"
-                      placeholder="https://example.com/login"
-                      value={loginConfig.loginUrl}
-                      onChange={(e) => setLoginConfig({ ...loginConfig, loginUrl: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 font-mono text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-slate-300 block mb-1">Username / Email Value</label>
-                    <input
-                      type="text"
-                      placeholder="user@example.com"
-                      value={loginConfig.username}
-                      onChange={(e) => setLoginConfig({ ...loginConfig, username: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-slate-300 block mb-1">Password Value</label>
-                    <input
-                      type="password"
-                      placeholder="••••••••"
-                      value={loginConfig.password}
-                      onChange={(e) => setLoginConfig({ ...loginConfig, password: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-slate-200 text-xs"
-                    />
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 text-xs">
+                  <input
+                    type="text"
+                    placeholder="Login page URL"
+                    value={loginConfig.loginUrl}
+                    onChange={(e) => setLoginConfig({ ...loginConfig, loginUrl: e.target.value })}
+                    className="bg-[#0d0f17] border border-zinc-800 rounded-md p-2 text-zinc-200 font-mono text-xs focus:outline-none focus:border-zinc-600"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Username / Email"
+                    value={loginConfig.username}
+                    onChange={(e) => setLoginConfig({ ...loginConfig, username: e.target.value })}
+                    className="bg-[#0d0f17] border border-zinc-800 rounded-md p-2 text-zinc-200 font-mono text-xs focus:outline-none focus:border-zinc-600"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    value={loginConfig.password}
+                    onChange={(e) => setLoginConfig({ ...loginConfig, password: e.target.value })}
+                    className="bg-[#0d0f17] border border-zinc-800 rounded-md p-2 text-zinc-200 font-mono text-xs focus:outline-none focus:border-zinc-600"
+                  />
                 </div>
               )}
+
+              {/* Quick Preset Chips */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-zinc-500">
+                <span className="font-mono">presets:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUrl("https://httpbin.org/status/500");
+                    setAuthMode("none");
+                    setCrawlMode("single");
+                  }}
+                  className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 font-mono transition"
+                >
+                  httpbin 500
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUrl("https://httpbin.org/status/401");
+                    setAuthMode("none");
+                    setCrawlMode("single");
+                  }}
+                  className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 font-mono transition"
+                >
+                  httpbin 401
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUrl("https://jsonplaceholder.typicode.com");
+                    setAuthMode("none");
+                    setCrawlMode("multi");
+                    setMaxPages(3);
+                  }}
+                  className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 font-mono transition"
+                >
+                  typicode crawler
+                </button>
+              </div>
             </div>
           </form>
+        </section>
 
-          {/* Quick Preset Buttons */}
-          <div className="flex flex-wrap items-center gap-2 pt-2 text-xs text-slate-500">
-            <span>Uji coba cepat:</span>
-            <button
-              onClick={() => {
-                setUrl("https://httpbin.org/status/500");
-                setAuthMode("none");
-                setCrawlMode("single");
-              }}
-              className="text-slate-400 hover:text-indigo-400 bg-slate-800/80 px-2.5 py-1 rounded border border-slate-700"
-            >
-              Test API 500
-            </button>
-            <button
-              onClick={() => {
-                setUrl("https://httpbin.org/status/401");
-                setAuthMode("none");
-                setCrawlMode("single");
-              }}
-              className="text-slate-400 hover:text-indigo-400 bg-slate-800/80 px-2.5 py-1 rounded border border-slate-700"
-            >
-              Test 401 Unauthorized
-            </button>
-            <button
-              onClick={() => {
-                setUrl("https://jsonplaceholder.typicode.com");
-                setAuthMode("none");
-                setCrawlMode("multi");
-                setMaxPages(3);
-              }}
-              className="text-slate-400 hover:text-indigo-400 bg-slate-800/80 px-2.5 py-1 rounded border border-slate-700"
-            >
-              Test Crawler Multi-Halaman
-            </button>
-          </div>
-        </div>
-
-        {/* Error Alert */}
+        {/* Error Alert Box */}
         {errorMsg && (
-          <div className="bg-red-950/50 border border-red-800 text-red-200 p-4 rounded-xl flex items-start gap-3">
-            <XCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+          <div className="border border-rose-900/80 bg-rose-950/20 text-rose-200 p-3.5 rounded-lg flex items-start gap-2.5 text-xs">
+            <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
             <div>
-              <div className="font-semibold text-sm">Gagal Melakukan Inspect</div>
-              <div className="text-xs text-red-300 mt-0.5">{errorMsg}</div>
+              <div className="font-semibold text-rose-300">Inspection Failure</div>
+              <div className="text-zinc-300 mt-0.5 font-mono">{errorMsg}</div>
             </div>
           </div>
         )}
 
-        {/* Results Container */}
+        {/* Results Deck */}
         {result && (
-          <div className="space-y-6">
-            {/* Meta & Stats Overview */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-xs text-slate-400">Health Score</span>
-                <span
-                  className={`text-3xl font-extrabold mt-1 ${
-                    result.meta.healthScore >= 80
-                      ? "text-emerald-400"
-                      : result.meta.healthScore >= 50
-                      ? "text-amber-400"
-                      : "text-red-400"
-                  }`}
-                >
-                  {result.meta.healthScore}/100
-                </span>
-                <span className="text-[11px] text-slate-500 mt-1">
-                  {result.meta.healthScore >= 80 ? "Normal" : "Perlu Perbaikan"}
-                </span>
+          <section className="space-y-4">
+            {/* Horizontal Metric Strip (Anti-Slop: clean 1px border division, quiet semantic colors) */}
+            <div className="border border-zinc-800/80 bg-[#0c0e14] rounded-lg divide-y sm:divide-y-0 sm:divide-x divide-zinc-800/80 grid grid-cols-2 sm:grid-cols-5 text-left">
+              {/* Score */}
+              <div className="p-3.5 space-y-1">
+                <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wider block">Health Score</span>
+                <div className="flex items-baseline gap-1.5">
+                  <span
+                    className={`text-2xl font-semibold tracking-tight font-mono ${
+                      result.meta.healthScore >= 80
+                        ? "text-emerald-400"
+                        : result.meta.healthScore >= 50
+                        ? "text-amber-400"
+                        : "text-rose-400"
+                    }`}
+                  >
+                    {result.meta.healthScore}
+                  </span>
+                  <span className="text-xs text-zinc-500 font-mono">/100</span>
+                </div>
+                <div className="text-[10px] text-zinc-400">
+                  {result.meta.healthScore >= 80 ? "Nominal status" : "Action required"}
+                </div>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-xs text-slate-400">Total Requests</span>
-                <span className="text-2xl font-bold text-white mt-1">
+              {/* Total Requests */}
+              <div className="p-3.5 space-y-1">
+                <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wider block">Network Requests</span>
+                <div className="text-2xl font-semibold tracking-tight font-mono text-zinc-100">
                   {result.meta.totalRequestsCount}
-                </span>
-                <span className="text-[11px] text-slate-500 mt-1">
-                  {result.meta.crawledPages && result.meta.crawledPages.length > 1
-                    ? `Dari ${result.meta.crawledPages.length} halaman internal`
-                    : `${result.meta.apiRequestsCount} Fetch/XHR`}
-                </span>
+                </div>
+                <div className="text-[10px] text-zinc-400 font-mono">
+                  {result.meta.apiRequestsCount} Fetch/XHR
+                </div>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-xs text-slate-400">API Error (4xx/5xx/Fail)</span>
-                <span
-                  className={`text-2xl font-bold mt-1 ${
-                    result.meta.errorRequestsCount > 0 ? "text-red-400" : "text-emerald-400"
+              {/* Failed / Error APIs */}
+              <div className="p-3.5 space-y-1">
+                <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wider block">Failed / 4xx / 5xx</span>
+                <div
+                  className={`text-2xl font-semibold tracking-tight font-mono ${
+                    result.meta.errorRequestsCount > 0 ? "text-rose-400" : "text-emerald-400"
                   }`}
                 >
                   {result.meta.errorRequestsCount}
-                </span>
-                <span className="text-[11px] text-slate-500 mt-1">
-                  {result.meta.errorRequestsCount > 0 ? "Perlu perhatian!" : "Semua 2xx/3xx"}
-                </span>
+                </div>
+                <div className="text-[10px] text-zinc-400">
+                  {result.meta.errorRequestsCount > 0 ? "Detected anomalies" : "Zero HTTP errors"}
+                </div>
               </div>
 
-              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-xs text-slate-400">Console & Crashes</span>
-                <span
-                  className={`text-2xl font-bold mt-1 ${
-                    result.meta.consoleErrorsCount > 0 ? "text-amber-400" : "text-slate-300"
+              {/* Console & Crashes */}
+              <div className="p-3.5 space-y-1">
+                <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wider block">Console / Crashes</span>
+                <div
+                  className={`text-2xl font-semibold tracking-tight font-mono ${
+                    result.meta.consoleErrorsCount > 0 || result.meta.pageErrorsCount > 0
+                      ? "text-amber-400"
+                      : "text-zinc-300"
                   }`}
                 >
-                  {result.meta.consoleErrorsCount}
-                </span>
-                <span className="text-[11px] text-slate-500 mt-1">
-                  {result.meta.pageErrorsCount} Uncaught crash
-                </span>
+                  {result.meta.consoleErrorsCount + result.meta.pageErrorsCount}
+                </div>
+                <div className="text-[10px] text-zinc-400 font-mono">
+                  {result.meta.pageErrorsCount} uncaught crashes
+                </div>
               </div>
 
-              <div className="col-span-2 md:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-                <span className="text-xs text-slate-400">Screenshot & Report</span>
-                <div className="flex items-center gap-1.5 mt-2">
+              {/* Target & Quick Actions */}
+              <div className="p-3.5 space-y-1 col-span-2 sm:col-span-1">
+                <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wider block">Target & Report</span>
+                <div className="flex items-center gap-1.5 pt-0.5">
                   {result.meta.screenshot && (
                     <button
                       onClick={() => setShowScreenshot(true)}
-                      className="text-xs flex items-center justify-center gap-1 bg-slate-800 hover:bg-slate-700 text-indigo-300 py-1.5 px-2.5 rounded-lg border border-slate-700 transition"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 text-[11px] text-zinc-300 transition"
                     >
-                      <Eye className="w-3.5 h-3.5" />
+                      <Eye className="w-3 h-3 text-zinc-400" />
                       Visual
                     </button>
                   )}
                   <Link
                     href={`/report/${result.id}`}
                     target="_blank"
-                    className="text-xs flex items-center justify-center gap-1 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 py-1.5 px-2.5 rounded-lg border border-indigo-500/40 transition"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 text-[11px] text-zinc-300 transition"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Shareable
+                    <ExternalLink className="w-3 h-3 text-zinc-400" />
+                    Report
                   </Link>
                 </div>
-                <span className="text-[10px] text-slate-500 mt-1 truncate" title={result.meta.finalUrl}>
-                  {result.meta.finalUrl}
-                </span>
+                <div className="text-[10px] text-zinc-500 font-mono truncate" title={result.meta.finalUrl}>
+                  {(result.meta.navigationTimeMs / 1000).toFixed(2)}s load time
+                </div>
               </div>
             </div>
 
-            {/* Quick Action Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3">
-              <span className="text-xs text-slate-400">
-                Mode: <strong className="text-indigo-300">{result.meta.crawlMode === "multi" ? "Crawler Multi-Halaman" : "Halaman Tunggal"}</strong>
-                {result.meta.crawledPages && result.meta.crawledPages.length > 1 && (
-                  <span className="ml-1 text-slate-500">({result.meta.crawledPages.length} halaman dijelajahi)</span>
+            {/* Sub-header Toolbar & Export Bug Dev Format */}
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+              <div className="text-xs text-zinc-400 flex items-center gap-2">
+                <span className="font-mono text-zinc-500">target:</span>
+                <span className="font-mono text-zinc-200 truncate max-w-sm sm:max-w-md">{result.meta.finalUrl}</span>
+                {result.meta.crawlMode === "multi" && result.meta.crawledPages && (
+                  <span className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800 font-mono">
+                    {result.meta.crawledPages.length} pages
+                  </span>
                 )}
-              </span>
+              </div>
+
               <div className="flex items-center gap-2">
                 <button
                   onClick={copyMarkdownBugReport}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-indigo-300 px-3 py-1.5 rounded-lg border border-slate-700 transition"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white transition"
                 >
-                  {copiedBugReport ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copiedBugReport ? "Disalin ke Clipboard!" : "Salin Format Bug Dev (Markdown)"}
+                  {copiedBugReport ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-zinc-400" />}
+                  <span>{copiedBugReport ? "Copied" : "Copy Bug Format (Markdown)"}</span>
                 </button>
               </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="flex border-b border-slate-800 gap-4">
-              {result.meta.crawledPages && result.meta.crawledPages.length > 1 && (
+            {/* Navigation Tabs Bar */}
+            <div className="border-b border-zinc-800 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-1 sm:gap-2">
+                {result.meta.crawledPages && result.meta.crawledPages.length > 1 && (
+                  <button
+                    onClick={() => setActiveTab("crawled")}
+                    className={`px-3 py-2 text-xs font-medium border-b-2 transition flex items-center gap-1.5 ${
+                      activeTab === "crawled"
+                        ? "border-zinc-200 text-zinc-100"
+                        : "border-transparent text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    <Compass className="w-3.5 h-3.5" />
+                    <span>Crawled Pages</span>
+                    <span className="font-mono text-[10px] text-zinc-400">({result.meta.crawledPages.length})</span>
+                  </button>
+                )}
+
                 <button
-                  onClick={() => setActiveTab("crawled")}
-                  className={`pb-3 text-sm font-medium flex items-center gap-2 border-b-2 transition ${
-                    activeTab === "crawled"
-                      ? "border-indigo-500 text-indigo-400"
-                      : "border-transparent text-slate-400 hover:text-slate-200"
+                  onClick={() => setActiveTab("diagnostics")}
+                  className={`px-3 py-2 text-xs font-medium border-b-2 transition flex items-center gap-1.5 ${
+                    activeTab === "diagnostics"
+                      ? "border-zinc-200 text-zinc-100"
+                      : "border-transparent text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
-                  <Compass className="w-4 h-4" />
-                  Halaman Dijelajahi ({result.meta.crawledPages.length})
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>Diagnostics</span>
+                  <span className="font-mono text-[10px] text-zinc-400">({result.diagnostics.length})</span>
                 </button>
-              )}
 
-              <button
-                onClick={() => setActiveTab("diagnostics")}
-                className={`pb-3 text-sm font-medium flex items-center gap-2 border-b-2 transition ${
-                  activeTab === "diagnostics"
-                    ? "border-indigo-500 text-indigo-400"
-                    : "border-transparent text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <AlertTriangle className="w-4 h-4" />
-                Diagnosa & Analisis ({result.diagnostics.length})
-              </button>
+                <button
+                  onClick={() => setActiveTab("requests")}
+                  className={`px-3 py-2 text-xs font-medium border-b-2 transition flex items-center gap-1.5 ${
+                    activeTab === "requests"
+                      ? "border-zinc-200 text-zinc-100"
+                      : "border-transparent text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>Network Traffic</span>
+                  <span className="font-mono text-[10px] text-zinc-400">({result.requests.length})</span>
+                </button>
 
-              <button
-                onClick={() => setActiveTab("requests")}
-                className={`pb-3 text-sm font-medium flex items-center gap-2 border-b-2 transition ${
-                  activeTab === "requests"
-                    ? "border-indigo-500 text-indigo-400"
-                    : "border-transparent text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <Activity className="w-4 h-4" />
-                Traffic Network & API ({result.requests.length})
-              </button>
-
-              <button
-                onClick={() => setActiveTab("console")}
-                className={`pb-3 text-sm font-medium flex items-center gap-2 border-b-2 transition ${
-                  activeTab === "console"
-                    ? "border-indigo-500 text-indigo-400"
-                    : "border-transparent text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <Terminal className="w-4 h-4" />
-                Console Logs ({result.consoleLogs.length})
-              </button>
+                <button
+                  onClick={() => setActiveTab("console")}
+                  className={`px-3 py-2 text-xs font-medium border-b-2 transition flex items-center gap-1.5 ${
+                    activeTab === "console"
+                      ? "border-zinc-200 text-zinc-100"
+                      : "border-transparent text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >
+                  <Terminal className="w-3.5 h-3.5" />
+                  <span>Console & Runtime</span>
+                  <span className="font-mono text-[10px] text-zinc-400">({result.consoleLogs.length + result.pageErrors.length})</span>
+                </button>
+              </div>
             </div>
 
-            {/* TAB: CRAWLED PAGES (Multi-Page mode) */}
+            {/* TAB: CRAWLER PAGES */}
             {activeTab === "crawled" && result.meta.crawledPages && (
-              <div className="space-y-4">
-                <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs font-mono">
-                      <thead className="bg-slate-950/80 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-800 font-sans">
-                        <tr>
-                          <th className="py-3 px-4">Status</th>
-                          <th className="py-3 px-4">URL Halaman Internal</th>
-                          <th className="py-3 px-4">Title</th>
-                          <th className="py-3 px-4">Load Time</th>
-                          <th className="py-3 px-4">API Errors</th>
-                          <th className="py-3 px-4 text-right">Filter Request</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/60">
-                        {result.meta.crawledPages.map((page, idx) => (
-                          <tr key={idx} className="hover:bg-slate-800/50 transition">
-                            <td className="py-3 px-4">
-                              <span
-                                className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                                  page.status >= 400 || page.status === 0
-                                    ? "bg-red-900/60 text-red-300 border border-red-800"
-                                    : "bg-emerald-900/40 text-emerald-300 border border-emerald-800"
-                                }`}
-                              >
-                                {page.status || "ERR"}
+              <div className="border border-zinc-800/80 rounded-lg overflow-hidden bg-[#0c0e14]">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs font-mono">
+                    <thead className="bg-[#0e1017] text-zinc-400 font-sans border-b border-zinc-800 text-[11px]">
+                      <tr>
+                        <th className="py-2.5 px-3 w-16">Status</th>
+                        <th className="py-2.5 px-3">Internal Path URL</th>
+                        <th className="py-2.5 px-3 font-sans">Title</th>
+                        <th className="py-2.5 px-3 w-24">Timing</th>
+                        <th className="py-2.5 px-3 w-28">Errors</th>
+                        <th className="py-2.5 px-3 text-right font-sans w-24">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/60">
+                      {result.meta.crawledPages.map((page, idx) => (
+                        <tr key={idx} className="hover:bg-zinc-900/40 transition">
+                          <td className="py-2.5 px-3">
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[11px] font-mono font-medium ${
+                                page.status >= 400 || page.status === 0
+                                  ? "bg-rose-950/60 text-rose-300 border border-rose-900/70"
+                                  : "bg-emerald-950/60 text-emerald-300 border border-emerald-900/70"
+                              }`}
+                            >
+                              {page.status || "ERR"}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-zinc-300 max-w-sm truncate" title={page.url}>
+                            {page.url}
+                          </td>
+                          <td className="py-2.5 px-3 text-zinc-400 font-sans max-w-xs truncate">
+                            {page.pageTitle || "-"}
+                          </td>
+                          <td className="py-2.5 px-3 text-zinc-400 font-mono">
+                            {(page.durationMs / 1000).toFixed(2)}s
+                          </td>
+                          <td className="py-2.5 px-3">
+                            {page.errorRequestsCount > 0 ? (
+                              <span className="text-rose-400 font-medium">
+                                {page.errorRequestsCount} error
                               </span>
-                            </td>
-                            <td className="py-3 px-4 max-w-sm truncate text-slate-200">
-                              <span title={page.url}>{page.url}</span>
-                            </td>
-                            <td className="py-3 px-4 max-w-xs truncate text-slate-400 font-sans">
-                              {page.pageTitle}
-                            </td>
-                            <td className="py-3 px-4 text-slate-400">
-                              {(page.durationMs / 1000).toFixed(2)}s
-                            </td>
-                            <td className="py-3 px-4">
-                              {page.errorRequestsCount > 0 ? (
-                                <span className="text-red-400 font-bold bg-red-950/80 px-2 py-0.5 rounded border border-red-900">
-                                  {page.errorRequestsCount} error
-                                </span>
-                              ) : (
-                                <span className="text-emerald-400">0 error</span>
-                              )}
-                            </td>
-                            <td className="py-3 px-4 text-right font-sans">
-                              <button
-                                onClick={() => {
-                                  setSearchTerm(page.url);
-                                  setActiveTab("requests");
-                                }}
-                                className="bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2.5 py-1 rounded text-[11px] transition"
-                              >
-                                Lihat Traffic
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                            ) : (
+                              <span className="text-zinc-500">0</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-sans">
+                            <button
+                              onClick={() => {
+                                setSearchTerm(page.url);
+                                setActiveTab("requests");
+                              }}
+                              className="px-2 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[11px] text-zinc-300 transition"
+                            >
+                              Filter
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
 
-            {/* TAB 1: DIAGNOSTICS */}
+            {/* TAB: DIAGNOSTICS */}
             {activeTab === "diagnostics" && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {result.diagnostics.length === 0 ? (
-                  <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-8 text-center">
-                    <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
-                    <h3 className="text-lg font-semibold text-white">Tidak Ditemukan Error Kritis</h3>
-                    <p className="text-sm text-slate-400 max-w-md mx-auto mt-1">
-                      Semua request API dan skrip halaman berjalan normal tanpa HTTP 4xx/5xx atau runtime crash.
+                  <div className="border border-zinc-800 bg-[#0c0e14] rounded-lg p-8 text-center space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
+                    <h3 className="text-sm font-semibold text-zinc-200">No Critical Anomalies Found</h3>
+                    <p className="text-xs text-zinc-500 max-w-md mx-auto">
+                      All inspected API requests and page execution scripts ran normally without 4xx/5xx status codes or runtime exceptions.
                     </p>
                   </div>
                 ) : (
                   result.diagnostics.map((item, idx) => (
                     <div
                       key={idx}
-                      className={`bg-slate-900 border rounded-xl p-5 space-y-3 ${
+                      className={`border rounded-lg p-4 space-y-3 bg-[#0c0e14] ${
                         item.severity === "CRITICAL"
-                          ? "border-red-900/80 bg-red-950/20"
+                          ? "border-rose-900/60"
                           : item.severity === "HIGH"
-                          ? "border-amber-900/80 bg-amber-950/20"
-                          : "border-slate-800"
+                          ? "border-amber-900/60"
+                          : "border-zinc-800"
                       }`}
                     >
+                      {/* Diagnostic Header */}
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`px-2.5 py-0.5 rounded text-xs font-bold ${
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
                               item.severity === "CRITICAL"
-                                ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                                ? "bg-rose-950/70 text-rose-300 border border-rose-900/80"
                                 : item.severity === "HIGH"
-                                ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                                : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                                ? "bg-amber-950/70 text-amber-300 border border-amber-900/80"
+                                : "bg-sky-950/70 text-sky-300 border border-sky-900/80"
                             }`}
                           >
                             {item.severity}
                           </span>
-                          <span className="text-xs font-mono text-slate-400">
-                            [{item.category}]
-                          </span>
-                          <h4 className="text-base font-semibold text-white">
+                          <span className="text-xs font-mono text-zinc-500">[{item.category}]</span>
+                          <h4 className="text-xs sm:text-sm font-semibold text-zinc-100">
                             {item.title}
                           </h4>
                         </div>
+
                         {item.status && (
-                          <span className="text-xs font-mono bg-slate-800 px-2 py-1 rounded text-red-300">
-                            Status: {item.status}
+                          <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-rose-300 border border-zinc-800">
+                            Status {item.status}
                           </span>
                         )}
                       </div>
 
+                      {/* Endpoint */}
                       {item.endpoint && (
-                        <div className="text-xs font-mono bg-slate-950 p-2.5 rounded border border-slate-800 text-slate-300 break-all">
-                          <span className="text-slate-500 mr-2">Endpoint:</span>
-                          {item.endpoint}
+                        <div className="bg-[#090a0f] p-2 rounded border border-zinc-800/80 font-mono text-xs text-zinc-300 break-all select-all flex items-center justify-between gap-2">
+                          <div>
+                            <span className="text-zinc-500 mr-2">endpoint:</span>
+                            {item.endpoint}
+                          </div>
                         </div>
                       )}
 
-                      <div className="text-sm text-slate-300">{item.details}</div>
+                      {/* Details text */}
+                      <p className="text-xs text-zinc-300 leading-relaxed font-sans">{item.details}</p>
 
                       {/* Payload preview if available */}
                       {item.payload && (
-                        <div className="bg-slate-950 rounded-lg p-3 border border-slate-800 text-xs">
-                          <span className="text-slate-400 font-semibold block mb-1">
+                        <div className="bg-[#090a0f] rounded border border-zinc-800/80 p-2.5 text-xs font-mono">
+                          <span className="text-[11px] text-zinc-500 font-sans block mb-1">
                             Lemparan (Request Payload):
                           </span>
-                          <pre className="font-mono text-slate-300 overflow-x-auto max-h-40">
+                          <pre className="text-zinc-300 overflow-x-auto max-h-36 text-[11px]">
                             {typeof item.payload === "string"
                               ? item.payload
                               : JSON.stringify(item.payload, null, 2)}
@@ -1162,11 +1180,11 @@ ${result.diagnostics
 
                       {/* Response preview if available */}
                       {item.response && (
-                        <div className="bg-slate-950 rounded-lg p-3 border border-slate-800 text-xs">
-                          <span className="text-slate-400 font-semibold block mb-1">
+                        <div className="bg-[#090a0f] rounded border border-zinc-800/80 p-2.5 text-xs font-mono">
+                          <span className="text-[11px] text-zinc-500 font-sans block mb-1">
                             Balasan (Response Body):
                           </span>
-                          <pre className="font-mono text-slate-300 overflow-x-auto max-h-40">
+                          <pre className="text-zinc-300 overflow-x-auto max-h-36 text-[11px]">
                             {typeof item.response === "string"
                               ? item.response
                               : JSON.stringify(item.response, null, 2)}
@@ -1174,52 +1192,53 @@ ${result.diagnostics
                         </div>
                       )}
 
-                      <div className="bg-indigo-950/40 border border-indigo-900/50 rounded-lg p-3 text-xs text-indigo-200">
-                        <span className="font-semibold text-indigo-300 block mb-0.5">
-                          💡 Analisis Solusi / Rekomendasi:
+                      {/* Recommendation block */}
+                      <div className="bg-zinc-900/60 border border-zinc-800 rounded p-2.5 text-xs text-zinc-300">
+                        <span className="text-[11px] text-zinc-400 font-medium block mb-0.5">
+                          💡 Solusi / Tindakan Perbaikan:
                         </span>
                         {item.recommendation}
                       </div>
 
-                      {/* Gemini AI Deep Diagnosis Card */}
+                      {/* Gemini AI Diagnosis Card */}
                       {aiDiagnoses[idx] ? (
-                        <div className="bg-slate-950 border border-indigo-500/40 rounded-xl p-4 space-y-3">
-                          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                            <div className="flex items-center gap-1.5 text-indigo-300 font-bold text-xs">
-                              <Bot className="w-4 h-4 text-indigo-400" />
-                              <span>Diagnosa AI ({aiDiagnoses[idx].aiEngine})</span>
+                        <div className="bg-[#090a0f] border border-zinc-700/80 rounded-lg p-3.5 space-y-2.5">
+                          <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                            <div className="flex items-center gap-1.5 text-xs font-mono text-zinc-200">
+                              <Bot className="w-3.5 h-3.5 text-zinc-400" />
+                              <span>Gemini Diagnosis ({aiDiagnoses[idx].aiEngine})</span>
                             </div>
-                            <span className="text-[10px] bg-indigo-950 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800">
-                              Pihak Bermasalah: {aiDiagnoses[idx].sideFault} ({aiDiagnoses[idx].confidence}% Akurasi)
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">
+                              Fault: {aiDiagnoses[idx].sideFault} ({aiDiagnoses[idx].confidence}% conf)
                             </span>
                           </div>
 
-                          <div className="text-xs text-slate-200">
-                            <strong>Penyebab Utama:</strong> {aiDiagnoses[idx].rootCause}
+                          <div className="text-xs text-zinc-300">
+                            <span className="font-semibold text-zinc-200">Root Cause:</span> {aiDiagnoses[idx].rootCause}
                           </div>
 
-                          <div className="text-xs text-indigo-200">
-                            <strong>Rekomendasi Teknisi:</strong> {aiDiagnoses[idx].recommendation}
+                          <div className="text-xs text-zinc-400">
+                            <span className="font-semibold text-zinc-300">Technical Advice:</span> {aiDiagnoses[idx].recommendation}
                           </div>
 
                           {aiDiagnoses[idx].suggestedFixCode && (
                             <div>
-                              <span className="text-[11px] font-bold text-slate-400 block mb-1">Rekomendasi Kode Perbaikan:</span>
-                              <pre className="bg-slate-900 border border-slate-800 rounded p-2.5 font-mono text-[11px] text-emerald-300 overflow-x-auto">
+                              <span className="text-[10px] font-mono text-zinc-500 block mb-1">Suggested Code Fix:</span>
+                              <pre className="bg-[#0d0f17] border border-zinc-800 rounded p-2.5 font-mono text-[11px] text-emerald-300 overflow-x-auto">
                                 {aiDiagnoses[idx].suggestedFixCode}
                               </pre>
                             </div>
                           )}
                         </div>
                       ) : (
-                        <div className="flex justify-end">
+                        <div className="flex justify-end pt-1">
                           <button
                             onClick={() => requestAiDiagnosis(idx, item)}
                             disabled={loadingAiIdx === idx}
-                            className="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5"
+                            className="bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-700/80 px-3 py-1.5 rounded text-xs font-medium transition flex items-center gap-1.5"
                           >
-                            <Bot className={`w-3.5 h-3.5 ${loadingAiIdx === idx ? "animate-spin" : ""}`} />
-                            {loadingAiIdx === idx ? "Sedang Dianalisis AI..." : "Tanya AI Gemini (Diagnosa Pintar & Kode Solusi)"}
+                            <Bot className={`w-3.5 h-3.5 ${loadingAiIdx === idx ? "animate-spin" : "text-zinc-400"}`} />
+                            {loadingAiIdx === idx ? "Analyzing with Gemini..." : "Ask Gemini AI (Root Cause & Fix Code)"}
                           </button>
                         </div>
                       )}
@@ -1229,75 +1248,75 @@ ${result.diagnostics
               </div>
             )}
 
-            {/* TAB 2: REQUESTS TABLE */}
+            {/* TAB: REQUESTS TABLE */}
             {activeTab === "requests" && (
-              <div className="space-y-4">
-                {/* Search & Filter toolbar */}
-                <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="space-y-3">
+                {/* Search & Filter Toolbar */}
+                <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
+                  <div className="flex items-center gap-1 bg-[#0c0e14] border border-zinc-800 p-0.5 rounded-lg text-xs">
                     <button
                       onClick={() => setReqFilter("errors")}
-                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+                      className={`px-2.5 py-1 rounded-md transition ${
                         reqFilter === "errors"
-                          ? "bg-red-600/30 text-red-300 border border-red-500/50"
-                          : "bg-slate-900 text-slate-400 border border-slate-800"
+                          ? "bg-zinc-800 text-rose-300 font-medium"
+                          : "text-zinc-400 hover:text-zinc-200"
                       }`}
                     >
-                      Hanya Error ({result.meta.errorRequestsCount})
+                      Errors Only ({result.meta.errorRequestsCount})
                     </button>
                     <button
                       onClick={() => setReqFilter("api")}
-                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+                      className={`px-2.5 py-1 rounded-md transition ${
                         reqFilter === "api"
-                          ? "bg-indigo-600/30 text-indigo-300 border border-indigo-500/50"
-                          : "bg-slate-900 text-slate-400 border border-slate-800"
+                          ? "bg-zinc-800 text-zinc-100 font-medium"
+                          : "text-zinc-400 hover:text-zinc-200"
                       }`}
                     >
-                      API Saja (Fetch/XHR)
+                      Fetch / XHR Only
                     </button>
                     <button
                       onClick={() => setReqFilter("all")}
-                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+                      className={`px-2.5 py-1 rounded-md transition ${
                         reqFilter === "all"
-                          ? "bg-slate-700 text-white border border-slate-600"
-                          : "bg-slate-900 text-slate-400 border border-slate-800"
+                          ? "bg-zinc-800 text-zinc-100 font-medium"
+                          : "text-zinc-400 hover:text-zinc-200"
                       }`}
                     >
-                      Semua ({result.requests.length})
+                      All ({result.requests.length})
                     </button>
                   </div>
 
-                  <div className="relative w-full sm:w-72">
-                    <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                  <div className="relative w-full sm:w-64">
+                    <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-2.5" />
                     <input
                       type="text"
-                      placeholder="Cari URL, status, method..."
+                      placeholder="Filter path, method, status..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                      className="w-full bg-[#0c0e14] border border-zinc-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 font-mono focus:outline-none focus:border-zinc-600"
                     />
                   </div>
                 </div>
 
                 {/* Table */}
-                <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow">
+                <div className="border border-zinc-800/80 rounded-lg overflow-hidden bg-[#0c0e14]">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-950/80 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-800">
+                    <table className="w-full text-left text-xs font-mono">
+                      <thead className="bg-[#0e1017] text-zinc-400 font-sans border-b border-zinc-800 text-[11px]">
                         <tr>
-                          <th className="py-3 px-4">Status</th>
-                          <th className="py-3 px-4">Method</th>
-                          <th className="py-3 px-4">Endpoint URL</th>
-                          <th className="py-3 px-4">Type</th>
-                          <th className="py-3 px-4">Duration</th>
-                          <th className="py-3 px-4 text-right">Aksi</th>
+                          <th className="py-2.5 px-3 w-16">Status</th>
+                          <th className="py-2.5 px-3 w-16">Method</th>
+                          <th className="py-2.5 px-3">Endpoint Path / URL</th>
+                          <th className="py-2.5 px-3 w-20">Type</th>
+                          <th className="py-2.5 px-3 w-20 text-right">Duration</th>
+                          <th className="py-2.5 px-3 w-16 text-right font-sans">Inspect</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-800/60 font-mono">
+                      <tbody className="divide-y divide-zinc-800/60">
                         {filteredRequests.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="py-8 text-center text-slate-500 font-sans">
-                              Tidak ada request yang cocok dengan filter.
+                            <td colSpan={6} className="py-8 text-center text-zinc-500 font-sans">
+                              No requests match the selected filter criteria.
                             </td>
                           </tr>
                         ) : (
@@ -1306,68 +1325,73 @@ ${result.diagnostics
                             return (
                               <tr
                                 key={idx}
-                                className={`hover:bg-slate-800/50 transition cursor-pointer ${
-                                  isFail ? "bg-red-950/10" : ""
-                                }`}
                                 onClick={() => {
                                   setSelectedReq(req);
                                   setDetailTab(req.requestPayload ? "payload" : "response");
                                 }}
+                                className={`hover:bg-zinc-800/40 transition cursor-pointer ${
+                                  isFail ? "bg-rose-950/10" : ""
+                                }`}
                               >
-                                <td className="py-3 px-4">
+                                <td className="py-2.5 px-3">
                                   {req.failed ? (
-                                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-red-900/60 text-red-300 border border-red-800">
-                                      FAILED
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-900/80">
+                                      FAIL
                                     </span>
                                   ) : req.status ? (
                                     <span
-                                      className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                                         req.status >= 500
-                                          ? "bg-red-900/60 text-red-300 border border-red-800"
+                                          ? "bg-rose-950 text-rose-300 border border-rose-900/80"
                                           : req.status >= 400
-                                          ? "bg-amber-900/60 text-amber-300 border border-amber-800"
-                                          : "bg-emerald-900/40 text-emerald-300 border border-emerald-800"
+                                          ? "bg-amber-950 text-amber-300 border border-amber-900/80"
+                                          : "bg-emerald-950/60 text-emerald-300 border border-emerald-900/60"
                                       }`}
                                     >
                                       {req.status}
                                     </span>
                                   ) : (
-                                    <span className="text-slate-500">-</span>
+                                    <span className="text-zinc-600">-</span>
                                   )}
                                 </td>
-                                <td className="py-3 px-4">
+
+                                <td className="py-2.5 px-3">
                                   <span
-                                    className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getMethodBadgeClass(
+                                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${getMethodBadgeClass(
                                       req.method
                                     )}`}
                                   >
                                     {req.method}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4 max-w-md truncate text-slate-300">
-                                  <span title={req.url}>{req.url}</span>
+
+                                <td className="py-2.5 px-3 max-w-md truncate text-zinc-300" title={req.url}>
+                                  <span className="text-zinc-200">{req.url}</span>
                                   {req.pageOriginUrl && (
-                                    <span className="block text-[10px] text-slate-500 truncate mt-0.5">
-                                      page: {req.pageOriginUrl}
+                                    <span className="block text-[10px] text-zinc-500 truncate">
+                                      from: {req.pageOriginUrl}
                                     </span>
                                   )}
                                 </td>
-                                <td className="py-3 px-4 text-slate-400">
-                                  <span className="bg-slate-800 px-2 py-0.5 rounded text-[10px]">
+
+                                <td className="py-2.5 px-3 text-zinc-400">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800">
                                     {req.resourceType}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4 text-slate-400">
+
+                                <td className="py-2.5 px-3 text-right text-zinc-400 font-mono">
                                   {req.durationMs !== null ? `${req.durationMs}ms` : "-"}
                                 </td>
-                                <td className="py-3 px-4 text-right">
+
+                                <td className="py-2.5 px-3 text-right font-sans">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setSelectedReq(req);
                                       setDetailTab(req.requestPayload ? "payload" : "response");
                                     }}
-                                    className="bg-slate-800 hover:bg-slate-700 text-indigo-300 px-2.5 py-1 rounded text-[11px] font-sans transition"
+                                    className="px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 text-[11px] transition"
                                   >
                                     Inspect
                                   </button>
@@ -1383,28 +1407,28 @@ ${result.diagnostics
               </div>
             )}
 
-            {/* TAB 3: CONSOLE LOGS */}
+            {/* TAB: CONSOLE LOGS */}
             {activeTab === "console" && (
-              <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3 font-mono text-xs">
+              <div className="border border-zinc-800/80 rounded-lg p-4 bg-[#0c0e14] space-y-2.5 font-mono text-xs">
                 {result.consoleLogs.length === 0 && result.pageErrors.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500 font-sans">
-                    Tidak ada log console atau error runtime.
+                  <div className="text-center py-8 text-zinc-500 font-sans">
+                    No console logs or uncaught runtime exceptions recorded.
                   </div>
                 ) : (
                   <>
-                    {/* Uncaught Page Errors */}
+                    {/* Uncaught Errors */}
                     {result.pageErrors.map((err) => (
                       <div
                         key={err.id}
-                        className="bg-red-950/40 border border-red-800/80 rounded-lg p-3 text-red-200 space-y-1"
+                        className="bg-rose-950/20 border border-rose-900/60 rounded p-3 text-rose-200 space-y-1"
                       >
-                        <div className="flex items-center gap-2 font-bold text-red-400 font-sans">
-                          <XCircle className="w-4 h-4 shrink-0" />
+                        <div className="flex items-center gap-1.5 font-bold text-rose-400 text-xs">
+                          <XCircle className="w-3.5 h-3.5 shrink-0" />
                           <span>Uncaught Runtime Exception:</span>
                         </div>
-                        <div className="font-semibold">{err.message}</div>
+                        <div className="font-semibold text-xs">{err.message}</div>
                         {err.stack && (
-                          <pre className="text-[11px] text-red-300/80 overflow-x-auto whitespace-pre-wrap pt-1">
+                          <pre className="text-[10px] text-rose-300/80 overflow-x-auto whitespace-pre-wrap pt-1 font-mono">
                             {err.stack}
                           </pre>
                         )}
@@ -1415,130 +1439,129 @@ ${result.diagnostics
                     {result.consoleLogs.map((log) => (
                       <div
                         key={log.id}
-                        className={`p-3 rounded-lg border flex flex-col gap-1 ${
+                        className={`p-2.5 rounded border flex flex-col gap-0.5 ${
                           log.type === "error"
-                            ? "bg-red-950/20 border-red-900/60 text-red-300"
+                            ? "bg-rose-950/20 border-rose-900/60 text-rose-300"
                             : log.type === "warning"
                             ? "bg-amber-950/20 border-amber-900/60 text-amber-300"
-                            : "bg-slate-950 border-slate-800 text-slate-300"
+                            : "bg-[#090a0f] border-zinc-800 text-zinc-300"
                         }`}
                       >
-                        <div className="flex items-center justify-between text-[11px] text-slate-500 font-sans">
-                          <span className="uppercase font-bold tracking-wider">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-500 font-sans">
+                          <span className="uppercase font-bold tracking-wider font-mono">
                             [{log.type}]
                           </span>
                           {log.location?.url && (
-                            <span className="truncate max-w-sm">
+                            <span className="truncate max-w-sm font-mono">
                               {log.location.url}:{log.location.lineNumber}
                             </span>
                           )}
                         </div>
-                        <div className="whitespace-pre-wrap break-all">{log.text}</div>
+                        <div className="whitespace-pre-wrap break-all text-xs">{log.text}</div>
                       </div>
                     ))}
                   </>
                 )}
               </div>
             )}
-          </div>
+          </section>
         )}
 
-        {/* Modal: Deep Request Inspection */}
+        {/* Modal: Deep Request Inspector (Clean Developer Split Drawer) */}
         {selectedReq && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
-              {/* Modal Header */}
-              <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-3">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-sm">
+            <div className="bg-[#0c0e14] border border-zinc-800 rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              {/* Header */}
+              <div className="p-3.5 border-b border-zinc-800 bg-[#0e1017] flex items-center justify-between">
+                <div className="flex items-center gap-2">
                   <span
-                    className={`px-2 py-0.5 rounded text-xs font-mono font-bold ${
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
                       selectedReq.failed || (selectedReq.status && selectedReq.status >= 400)
-                        ? "bg-red-900/60 text-red-300 border border-red-800"
-                        : "bg-emerald-900/40 text-emerald-300 border border-emerald-800"
+                        ? "bg-rose-950 text-rose-300 border border-rose-900/80"
+                        : "bg-emerald-950 text-emerald-300 border border-emerald-900/80"
                     }`}
                   >
                     {selectedReq.failed ? "FAILED" : selectedReq.status || "STATUS ?"}
                   </span>
-                  <span className="font-mono font-bold text-sm text-slate-200">
+                  <span className="font-mono font-semibold text-xs text-zinc-200">
                     {selectedReq.method}
                   </span>
-                  <span className="text-xs text-slate-400 font-mono">
+                  <span className="text-zinc-500 text-xs font-mono">
                     ({selectedReq.durationMs ? `${selectedReq.durationMs}ms` : "-"})
                   </span>
                 </div>
                 <button
                   onClick={() => setSelectedReq(null)}
-                  className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                  className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white transition"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Subtabs for Detail */}
-              <div className="flex border-b border-slate-800 px-4 bg-slate-950/50 gap-4 text-xs font-medium">
+              <div className="flex border-b border-zinc-800 px-4 bg-[#0a0c12] gap-4 text-xs font-mono">
                 <button
                   onClick={() => setDetailTab("payload")}
-                  className={`py-2.5 border-b-2 transition ${
+                  className={`py-2 border-b-2 transition ${
                     detailTab === "payload"
-                      ? "border-indigo-500 text-indigo-400"
-                      : "border-transparent text-slate-400 hover:text-slate-200"
+                      ? "border-zinc-200 text-zinc-100"
+                      : "border-transparent text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
                   Lemparan (Payload)
                 </button>
                 <button
                   onClick={() => setDetailTab("response")}
-                  className={`py-2.5 border-b-2 transition ${
+                  className={`py-2 border-b-2 transition ${
                     detailTab === "response"
-                      ? "border-indigo-500 text-indigo-400"
-                      : "border-transparent text-slate-400 hover:text-slate-200"
+                      ? "border-zinc-200 text-zinc-100"
+                      : "border-transparent text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
-                  Balasan (Response Body)
+                  Balasan (Response)
                 </button>
                 <button
                   onClick={() => setDetailTab("params")}
-                  className={`py-2.5 border-b-2 transition ${
+                  className={`py-2 border-b-2 transition ${
                     detailTab === "params"
-                      ? "border-indigo-500 text-indigo-400"
-                      : "border-transparent text-slate-400 hover:text-slate-200"
+                      ? "border-zinc-200 text-zinc-100"
+                      : "border-transparent text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
-                  Query Parameters
+                  Query Params
                 </button>
                 <button
                   onClick={() => setDetailTab("headers")}
-                  className={`py-2.5 border-b-2 transition ${
+                  className={`py-2 border-b-2 transition ${
                     detailTab === "headers"
-                      ? "border-indigo-500 text-indigo-400"
-                      : "border-transparent text-slate-400 hover:text-slate-200"
+                      ? "border-zinc-200 text-zinc-100"
+                      : "border-transparent text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
                   Headers
                 </button>
               </div>
 
-              {/* Modal Body */}
-              <div className="p-5 overflow-y-auto space-y-4 text-xs font-mono">
-                {/* URL */}
-                <div className="bg-slate-950 p-2.5 rounded border border-slate-800 text-slate-200 break-all select-all">
-                  <span className="text-slate-500 mr-2 font-sans">Full URL:</span>
+              {/* Body */}
+              <div className="p-4 overflow-y-auto space-y-3 text-xs font-mono">
+                {/* Full URL */}
+                <div className="bg-[#090a0f] p-2.5 rounded border border-zinc-800 text-zinc-300 break-all select-all">
+                  <span className="text-zinc-500 mr-2 font-sans">Full URL:</span>
                   {selectedReq.url}
                 </div>
 
-                {/* Failure Reason */}
                 {selectedReq.failed && (
-                  <div className="bg-red-950/40 border border-red-800 p-3 rounded text-red-200 font-sans">
-                    <span className="font-semibold block mb-0.5">Penyebab Kegagalan Network:</span>
-                    {selectedReq.failureReason || "Koneksi terputus / diblokir"}
+                  <div className="bg-rose-950/20 border border-rose-900/60 p-2.5 rounded text-rose-300 font-sans">
+                    <span className="font-semibold block mb-0.5">Network Failure Cause:</span>
+                    {selectedReq.failureReason || "Connection terminated / aborted"}
                   </div>
                 )}
 
-                {/* Subtab Content: Payload */}
+                {/* Subtab: Payload */}
                 {detailTab === "payload" && (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between font-sans">
-                      <span className="font-semibold text-slate-300">Request Body / Lemparan:</span>
+                      <span className="font-medium text-zinc-400">Request Body / Payload:</span>
                       {selectedReq.requestPayload && (
                         <button
                           onClick={() =>
@@ -1549,34 +1572,34 @@ ${result.diagnostics
                               "payload"
                             )
                           }
-                          className="text-[11px] flex items-center gap-1 text-indigo-400 hover:text-indigo-300"
+                          className="text-[11px] flex items-center gap-1 text-zinc-400 hover:text-white"
                         >
-                          {copiedPayload ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                          {copiedPayload ? "Copied" : "Copy"}
+                          {copiedPayload ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          {copiedPayload ? "Copied" : "Copy JSON"}
                         </button>
                       )}
                     </div>
-                    <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 max-h-96 overflow-y-auto">
+                    <div className="bg-[#090a0f] border border-zinc-800 rounded-lg p-3 max-h-96 overflow-y-auto">
                       {selectedReq.requestPayload ? (
-                        <pre className="text-slate-300 text-[11px] whitespace-pre-wrap break-all">
+                        <pre className="text-zinc-300 text-[11px] whitespace-pre-wrap break-all">
                           {typeof selectedReq.requestPayload === "string"
                             ? selectedReq.requestPayload
                             : JSON.stringify(selectedReq.requestPayload, null, 2)}
                         </pre>
                       ) : (
-                        <span className="text-slate-600 font-sans">
-                          (Tidak ada body payload / Request GET)
+                        <span className="text-zinc-600 font-sans">
+                          (No payload body / Standard GET request)
                         </span>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* Subtab Content: Response */}
+                {/* Subtab: Response */}
                 {detailTab === "response" && (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between font-sans">
-                      <span className="font-semibold text-slate-300">Response Body / Balasan:</span>
+                      <span className="font-medium text-zinc-400">Response Body / Balasan:</span>
                       {selectedReq.responseBody && (
                         <button
                           onClick={() =>
@@ -1587,76 +1610,76 @@ ${result.diagnostics
                               "response"
                             )
                           }
-                          className="text-[11px] flex items-center gap-1 text-indigo-400 hover:text-indigo-300"
+                          className="text-[11px] flex items-center gap-1 text-zinc-400 hover:text-white"
                         >
-                          {copiedResponse ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                          {copiedResponse ? "Copied" : "Copy"}
+                          {copiedResponse ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          {copiedResponse ? "Copied" : "Copy JSON"}
                         </button>
                       )}
                     </div>
-                    <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 max-h-96 overflow-y-auto">
+                    <div className="bg-[#090a0f] border border-zinc-800 rounded-lg p-3 max-h-96 overflow-y-auto">
                       {selectedReq.responseBody ? (
-                        <pre className="text-slate-300 text-[11px] whitespace-pre-wrap break-all">
+                        <pre className="text-zinc-300 text-[11px] whitespace-pre-wrap break-all">
                           {typeof selectedReq.responseBody === "string"
                             ? selectedReq.responseBody
                             : JSON.stringify(selectedReq.responseBody, null, 2)}
                         </pre>
                       ) : (
-                        <span className="text-slate-600 font-sans">
-                          (Tidak ada response body atau binary)
+                        <span className="text-zinc-600 font-sans">
+                          (Empty response body or binary content)
                         </span>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* Subtab Content: Query Params */}
+                {/* Subtab: Params */}
                 {detailTab === "params" && (
-                  <div className="space-y-2">
-                    <span className="font-semibold text-slate-300 font-sans block">
+                  <div className="space-y-1.5">
+                    <span className="font-medium text-zinc-400 font-sans block">
                       Parsed Query Parameters:
                     </span>
-                    <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 max-h-96 overflow-y-auto">
+                    <div className="bg-[#090a0f] border border-zinc-800 rounded-lg p-3 max-h-96 overflow-y-auto">
                       {selectedReq.queryParams && Object.keys(selectedReq.queryParams).length > 0 ? (
-                        <table className="w-full text-left text-xs">
+                        <table className="w-full text-left text-xs font-mono">
                           <thead>
-                            <tr className="text-slate-500 border-b border-slate-800">
-                              <th className="pb-2">Key</th>
-                              <th className="pb-2">Value</th>
+                            <tr className="text-zinc-500 border-b border-zinc-800">
+                              <th className="pb-1.5">Key</th>
+                              <th className="pb-1.5">Value</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-800/60">
+                          <tbody className="divide-y divide-zinc-800/60">
                             {Object.entries(selectedReq.queryParams).map(([k, v]) => (
                               <tr key={k}>
-                                <td className="py-2 text-indigo-300 font-bold">{k}</td>
-                                <td className="py-2 text-slate-300 break-all">{v}</td>
+                                <td className="py-1.5 text-zinc-300 font-medium">{k}</td>
+                                <td className="py-1.5 text-zinc-400 break-all">{v}</td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
                       ) : (
-                        <span className="text-slate-600 font-sans">(Tidak ada query parameter pada URL)</span>
+                        <span className="text-zinc-600 font-sans">(No query parameters in URL)</span>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* Subtab Content: Headers */}
+                {/* Subtab: Headers */}
                 {detailTab === "headers" && (
-                  <div className="space-y-4">
+                  <div className="space-y-3 font-mono">
                     <div>
-                      <span className="text-slate-400 font-sans font-semibold block mb-1">
+                      <span className="text-zinc-500 font-sans text-xs block mb-1">
                         Request Headers:
                       </span>
-                      <pre className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-[11px] text-slate-300 overflow-x-auto">
+                      <pre className="bg-[#090a0f] border border-zinc-800 rounded-lg p-2.5 text-[11px] text-zinc-300 overflow-x-auto">
                         {JSON.stringify(selectedReq.requestHeaders, null, 2)}
                       </pre>
                     </div>
                     <div>
-                      <span className="text-slate-400 font-sans font-semibold block mb-1">
+                      <span className="text-zinc-500 font-sans text-xs block mb-1">
                         Response Headers:
                       </span>
-                      <pre className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-[11px] text-slate-300 overflow-x-auto">
+                      <pre className="bg-[#090a0f] border border-zinc-800 rounded-lg p-2.5 text-[11px] text-zinc-300 overflow-x-auto">
                         {JSON.stringify(selectedReq.responseHeaders, null, 2)}
                       </pre>
                     </div>
@@ -1664,13 +1687,13 @@ ${result.diagnostics
                 )}
               </div>
 
-              {/* Modal Footer */}
-              <div className="p-4 border-t border-slate-800 flex justify-end">
+              {/* Footer */}
+              <div className="p-3 border-t border-zinc-800 bg-[#0e1017] flex justify-end">
                 <button
                   onClick={() => setSelectedReq(null)}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-xs font-sans transition"
+                  className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-sans transition"
                 >
-                  Tutup
+                  Close
                 </button>
               </div>
             </div>
@@ -1680,24 +1703,24 @@ ${result.diagnostics
         {/* Modal: Screenshot Preview */}
         {showScreenshot && result?.meta.screenshot && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
-              <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-                <span className="font-semibold text-sm text-slate-200">
-                  Screenshot Halaman saat Di-inspect
+            <div className="bg-[#0c0e14] border border-zinc-800 rounded-xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+              <div className="p-3.5 border-b border-zinc-800 flex items-center justify-between">
+                <span className="font-semibold text-xs text-zinc-200 font-mono">
+                  Inspect Page Visual Capture
                 </span>
                 <button
                   onClick={() => setShowScreenshot(false)}
-                  className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                  className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="p-4 overflow-auto flex items-center justify-center bg-slate-950">
+              <div className="p-4 overflow-auto flex items-center justify-center bg-[#090a0f]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={result.meta.screenshot}
                   alt="Page screenshot"
-                  className="max-h-[75vh] object-contain rounded border border-slate-800"
+                  className="max-h-[75vh] object-contain rounded border border-zinc-800"
                 />
               </div>
             </div>
@@ -1707,40 +1730,40 @@ ${result.diagnostics
         {/* Drawer: History */}
         {showHistory && (
           <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm">
-            <div className="bg-slate-900 border-l border-slate-800 w-full max-w-md h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
-              <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-2 font-bold text-sm text-white">
-                  <History className="w-4 h-4 text-indigo-400" />
-                  <span>Riwayat Scan Tersimpan</span>
+            <div className="bg-[#0c0e14] border-l border-zinc-800 w-full max-w-md h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
+              <div className="p-3.5 border-b border-zinc-800 flex items-center justify-between">
+                <div className="flex items-center gap-2 font-semibold text-xs text-zinc-200 font-mono">
+                  <History className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Recorded Scan History</span>
                 </div>
                 <button
                   onClick={() => setShowHistory(false)}
-                  className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                  className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+              <div className="flex-1 overflow-y-auto p-3 space-y-2">
                 {loadingHistory ? (
-                  <div className="text-center py-8 text-slate-400 text-xs">Memuat riwayat...</div>
+                  <div className="text-center py-8 text-zinc-500 text-xs font-mono">Loading history...</div>
                 ) : historyList.length === 0 ? (
-                  <div className="text-center py-12 text-slate-500 text-xs">
-                    Belum ada riwayat scan.
+                  <div className="text-center py-12 text-zinc-600 text-xs">
+                    No scan records saved.
                   </div>
                 ) : (
                   historyList.map((item) => (
                     <div
                       key={item.id}
                       onClick={() => loadPastScan(item.id)}
-                      className="p-3 bg-slate-950 hover:bg-slate-850 border border-slate-800 hover:border-indigo-500/50 rounded-xl cursor-pointer transition space-y-1.5 group"
+                      className="p-2.5 bg-[#090a0f] hover:bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 rounded-lg cursor-pointer transition space-y-1 group"
                     >
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-mono text-[11px] text-indigo-400 truncate max-w-[200px]">
+                        <span className="font-mono text-[10px] text-zinc-400 truncate max-w-[180px]">
                           #{item.id}
                         </span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-slate-500">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-zinc-500 font-mono">
                             {new Date(item.created_at).toLocaleDateString("id-ID", {
                               month: "short",
                               day: "numeric",
@@ -1750,34 +1773,29 @@ ${result.diagnostics
                           </span>
                           <button
                             onClick={(e) => deletePastScan(e, item.id)}
-                            className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition p-1"
-                            title="Hapus riwayat"
+                            className="text-zinc-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition p-0.5"
+                            title="Delete scan"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
                       </div>
 
-                      <div className="font-mono text-xs text-slate-200 truncate" title={item.target_url}>
+                      <div className="font-mono text-xs text-zinc-200 truncate" title={item.target_url}>
                         {item.target_url}
                       </div>
 
-                      <div className="flex items-center gap-2 text-[10px]">
-                        <span className="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono">
+                        <span className="bg-zinc-900 text-zinc-400 px-1.5 py-0.5 rounded border border-zinc-800">
                           {item.total_requests} req
                         </span>
                         {item.error_requests > 0 ? (
-                          <span className="bg-red-950/80 text-red-400 border border-red-800/60 px-1.5 py-0.5 rounded font-bold">
-                            {item.error_requests} errors
+                          <span className="bg-rose-950 text-rose-400 border border-rose-900/60 px-1.5 py-0.5 rounded font-bold">
+                            {item.error_requests} err
                           </span>
                         ) : (
-                          <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 px-1.5 py-0.5 rounded">
-                            0 error
-                          </span>
-                        )}
-                        {item.console_errors > 0 && (
-                          <span className="bg-amber-950/80 text-amber-400 border border-amber-800/60 px-1.5 py-0.5 rounded">
-                            {item.console_errors} console err
+                          <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-900/40 px-1.5 py-0.5 rounded">
+                            0 err
                           </span>
                         )}
                       </div>
@@ -1788,72 +1806,69 @@ ${result.diagnostics
             </div>
           </div>
         )}
-        {/* Modal: Feedback & Pro Wishlist */}
+
+        {/* Modal: Feedback */}
         {showFeedback && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="bg-[#0c0e14] border border-zinc-800 rounded-xl w-full max-w-md p-5 shadow-2xl space-y-3">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-indigo-400" />
-                  <h3 className="font-bold text-sm text-white">Beri Masukan / Request Fitur</h3>
+                  <MessageSquare className="w-3.5 h-3.5 text-zinc-400" />
+                  <h3 className="font-semibold text-xs text-zinc-100">Send Beta Feedback</h3>
                 </div>
                 <button
                   onClick={() => setShowFeedback(false)}
-                  className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                  className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
               {fbSuccess ? (
-                <div className="p-6 text-center space-y-2">
-                  <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
-                  <h4 className="font-bold text-white text-sm">Terima Kasih atas Masukan Anda!</h4>
-                  <p className="text-xs text-slate-400">Masukan Anda sangat berharga untuk pengembangan rilis publik berikutnya.</p>
+                <div className="p-6 text-center space-y-1.5">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
+                  <h4 className="font-semibold text-zinc-100 text-xs">Feedback Received</h4>
+                  <p className="text-[11px] text-zinc-500">Thank you for shaping the next developer release.</p>
                 </div>
               ) : (
                 <form onSubmit={handleSubmitFeedback} className="space-y-3 text-xs">
-                  <p className="text-slate-400">
-                    Bantu kami menyempurnakan tool ini. Tulis saran fitur, kritik bug, atau email Anda jika ingin diinfokan saat fitur Pro (Monitoring berkala & alert bot) rilis.
-                  </p>
-
                   <div>
-                    <label className="text-slate-300 block mb-1 font-medium">Email Anda (Opsional):</label>
+                    <label className="text-zinc-400 block mb-1 font-medium">Your Email (Optional):</label>
                     <input
                       type="email"
-                      placeholder="nama@perusahaan.com"
+                      placeholder="dev@company.com"
                       value={fbEmail}
                       onChange={(e) => setFbEmail(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full bg-[#090a0f] border border-zinc-800 rounded-md p-2 text-zinc-200 focus:outline-none focus:border-zinc-600 font-mono text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="text-slate-300 block mb-1 font-medium">Pesan Masukan / Fitur yang Diinginkan: *</label>
+                    <label className="text-zinc-400 block mb-1 font-medium">Feedback / Feature Request: *</label>
                     <textarea
                       rows={4}
                       required
-                      placeholder="Contoh: Tolong tambahkan integrasi notifikasi ke Telegram atau export file HAR..."
+                      placeholder="e.g. Export HAR file, integrate Slack webhook alerts, or filter by response latency..."
                       value={fbMessage}
                       onChange={(e) => setFbMessage(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full bg-[#090a0f] border border-zinc-800 rounded-md p-2 text-zinc-200 focus:outline-none focus:border-zinc-600 text-xs"
                     />
                   </div>
 
-                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                  <div className="flex justify-end gap-2 pt-1 border-t border-zinc-800">
                     <button
                       type="button"
                       onClick={() => setShowFeedback(false)}
-                      className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2 rounded-lg font-medium transition"
+                      className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded text-xs transition"
                     >
-                      Batal
+                      Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={fbSubmitting || !fbMessage.trim()}
-                      className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-1.5"
+                      className="bg-zinc-100 hover:bg-white text-zinc-950 font-medium px-3.5 py-1.5 rounded text-xs transition border border-zinc-200 disabled:opacity-50"
                     >
-                      {fbSubmitting ? "Mengirim..." : "Kirim Masukan"}
+                      {fbSubmitting ? "Sending..." : "Submit Feedback"}
                     </button>
                   </div>
                 </form>
@@ -1861,35 +1876,36 @@ ${result.diagnostics
             </div>
           </div>
         )}
-        {/* Modal: User Auth (Login & Register with Google) */}
+
+        {/* Modal: User Auth (Clean Developer Login & Register) */}
         {showAuthModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5 relative">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="bg-[#0c0e14] border border-zinc-800 rounded-xl w-full max-w-sm p-5 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
                 <div>
-                  <h3 className="font-bold text-base text-white">
-                    {authTab === "login" ? "Selamat Datang Kembali" : "Buat Akun InspectLog"}
+                  <h3 className="font-semibold text-sm text-zinc-100 font-mono">
+                    {authTab === "login" ? "Sign in to InspectLog" : "Create Account"}
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-[11px] text-zinc-500 mt-0.5">
                     {authTab === "login"
-                      ? "Masuk untuk kelola monitor & riwayat scan Anda."
-                      : "Daftar gratis untuk simpan laporan debug permanen."}
+                      ? "Access persistent inspection history and alert monitors."
+                      : "Store debug reports and configure scheduled probes."}
                   </p>
                 </div>
                 <button
                   onClick={() => setShowAuthModal(false)}
-                  className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                  className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* 1-Click Google Sign-in Button */}
               <a
                 href="/api/auth/google"
-                className="w-full bg-white hover:bg-slate-100 text-slate-800 font-semibold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-3 border border-slate-200 shadow-sm"
+                className="w-full bg-white hover:bg-zinc-100 text-zinc-900 font-medium py-2 px-3 rounded-md text-xs transition flex items-center justify-center gap-2.5 border border-zinc-300 shadow-sm"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -1907,114 +1923,102 @@ ${result.diagnostics
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                   />
                 </svg>
-                <span>Lanjutkan dengan Google</span>
+                <span>Continue with Google</span>
               </a>
 
               {/* Divider */}
               <div className="relative flex items-center justify-center">
-                <div className="border-t border-slate-800 w-full"></div>
-                <span className="bg-slate-900 px-3 text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
-                  atau gunakan email
+                <div className="border-t border-zinc-800 w-full"></div>
+                <span className="bg-[#0c0e14] px-2 text-[10px] text-zinc-500 uppercase tracking-wider font-mono">
+                  or email
                 </span>
-                <div className="border-t border-slate-800 w-full"></div>
+                <div className="border-t border-zinc-800 w-full"></div>
               </div>
 
-              {/* Tabs */}
-              <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+              {/* Tab Selector */}
+              <div className="flex bg-[#090a0f] p-0.5 rounded-md border border-zinc-800 text-xs font-mono">
                 <button
                   type="button"
                   onClick={() => setAuthTab("login")}
-                  className={`flex-1 py-1.5 rounded-lg font-medium transition ${
-                    authTab === "login" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
+                  className={`flex-1 py-1 rounded transition ${
+                    authTab === "login" ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
-                  Masuk (Login)
+                  Sign In
                 </button>
                 <button
                   type="button"
                   onClick={() => setAuthTab("register")}
-                  className={`flex-1 py-1.5 rounded-lg font-medium transition ${
-                    authTab === "register" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
+                  className={`flex-1 py-1 rounded transition ${
+                    authTab === "register" ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
-                  Daftar Akun
+                  Register
                 </button>
               </div>
 
               {authError && (
-                <div className="p-3 bg-red-950/60 border border-red-800 rounded-xl text-xs text-red-300">
+                <div className="p-2.5 bg-rose-950/40 border border-rose-900/60 rounded text-xs text-rose-300 font-mono">
                   {authError}
                 </div>
               )}
 
-              <form onSubmit={handleAuthSubmit} className="space-y-3.5 text-xs">
+              <form onSubmit={handleAuthSubmit} className="space-y-3 text-xs">
                 {authTab === "register" && (
                   <div>
-                    <label className="text-slate-300 block mb-1 font-medium">Nama Lengkap *</label>
+                    <label className="text-zinc-400 block mb-1">Full Name</label>
                     <input
                       type="text"
                       required
-                      placeholder="Irul Developer"
+                      placeholder="Irul Dev"
                       value={authName}
                       onChange={(e) => setAuthName(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full bg-[#090a0f] border border-zinc-800 rounded-md p-2 text-zinc-200 focus:outline-none focus:border-zinc-600"
                     />
                   </div>
                 )}
 
                 <div>
-                  <label className="text-slate-300 block mb-1 font-medium">Alamat Email *</label>
+                  <label className="text-zinc-400 block mb-1">Email</label>
                   <input
                     type="email"
                     required
-                    placeholder="nama@perusahaan.com"
+                    placeholder="dev@example.com"
                     value={authEmail}
                     onChange={(e) => setAuthEmail(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full bg-[#090a0f] border border-zinc-800 rounded-md p-2 text-zinc-200 focus:outline-none focus:border-zinc-600 font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="text-slate-300 block mb-1 font-medium">Password *</label>
+                  <label className="text-zinc-400 block mb-1">Password</label>
                   <input
                     type="password"
                     required
                     placeholder="••••••••"
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full bg-[#090a0f] border border-zinc-800 rounded-md p-2 text-zinc-200 focus:outline-none focus:border-zinc-600 font-mono"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={authSubmitting}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-xs transition shadow-lg shadow-indigo-600/20 mt-2 flex items-center justify-center gap-2"
+                  className="w-full bg-zinc-100 hover:bg-white text-zinc-950 font-medium py-2 rounded-md text-xs transition border border-zinc-200 mt-1 flex items-center justify-center gap-1.5"
                 >
                   {authSubmitting ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Memproses...</span>
+                      <span>Authenticating...</span>
                     </>
                   ) : authTab === "login" ? (
-                    "Masuk ke Akun"
+                    "Sign In"
                   ) : (
-                    "Buat Akun Gratis"
+                    "Create Account"
                   )}
                 </button>
               </form>
-
-              {/* Benefits footer */}
-              <div className="pt-2 border-t border-slate-800 text-[11px] text-slate-400 space-y-1">
-                <div className="flex items-center gap-1.5 text-slate-300">
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Riwayat scan tersimpan permanen di cloud database</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-slate-300">
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Akses link shareable publik tanpa batas</span>
-                </div>
-              </div>
             </div>
           </div>
         )}

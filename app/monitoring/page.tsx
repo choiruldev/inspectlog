@@ -8,7 +8,7 @@ import {
   ArrowLeft,
   Bell,
   Check,
-  CheckCircle,
+  CheckCircle2,
   ExternalLink,
   Flame,
   Globe,
@@ -70,7 +70,7 @@ export default function MonitoringPage() {
         setMonitors(data.monitors || []);
       }
     } catch {
-      setErrorMsg("Gagal memuat daftar monitor.");
+      setErrorMsg("Failed to load monitor configurations.");
     } finally {
       setLoading(false);
     }
@@ -82,7 +82,7 @@ export default function MonitoringPage() {
 
   const handleTestAlert = async () => {
     if (!newDestination.trim()) {
-      setTestResult({ success: false, message: "Masukkan tujuan alert (Bot token:Chat ID atau URL Webhook)." });
+      setTestResult({ success: false, message: "Enter alert target (Bot token:Chat ID or Webhook URL)." });
       return;
     }
     setTestingAlert(true);
@@ -99,10 +99,10 @@ export default function MonitoringPage() {
       const data = await res.json();
       setTestResult({
         success: data.success,
-        message: data.success ? "Notifikasi uji coba berhasil terkirim!" : data.error || "Gagal kirim notifikasi.",
+        message: data.success ? "Test alert dispatched successfully!" : data.error || "Failed to dispatch test notification.",
       });
     } catch (err: any) {
-      setTestResult({ success: false, message: err.message || "Gagal menghubungi API test alert." });
+      setTestResult({ success: false, message: err.message || "Failed to connect to alert API." });
     } finally {
       setTestingAlert(false);
     }
@@ -128,7 +128,7 @@ export default function MonitoringPage() {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Gagal membuat monitor.");
+        throw new Error(data.error || "Failed to create monitor.");
       }
 
       setShowAddModal(false);
@@ -138,7 +138,7 @@ export default function MonitoringPage() {
       setTestResult(null);
       fetchMonitors();
     } catch (err: any) {
-      alert(err.message || "Gagal membuat monitor.");
+      alert(err.message || "Failed to create monitor.");
     } finally {
       setSavingMonitor(false);
     }
@@ -156,17 +156,17 @@ export default function MonitoringPage() {
         prev.map((m) => (m.id === id ? { ...m, status: nextStatus } : m))
       );
     } catch {
-      alert("Gagal mengubah status monitor.");
+      alert("Failed to update monitor status.");
     }
   };
 
   const handleDeleteMonitor = async (id: string) => {
-    if (!confirm("Hapus monitor ini?")) return;
+    if (!confirm("Delete this monitoring probe?")) return;
     try {
       await fetch(`/api/monitors/${id}`, { method: "DELETE" });
       setMonitors((prev) => prev.filter((m) => m.id !== id));
     } catch {
-      alert("Gagal menghapus monitor.");
+      alert("Failed to delete monitor probe.");
     }
   };
 
@@ -178,201 +178,200 @@ export default function MonitoringPage() {
       if (data.success) {
         fetchMonitors();
       } else {
-        alert(data.error || "Gagal menjalankan pemindaian.");
+        alert(data.error || "Failed to execute monitor probe.");
       }
     } catch (err: any) {
-      alert(err.message || "Gagal memindai.");
+      alert(err.message || "Execution failed.");
     } finally {
       setRunningId(null);
     }
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 font-sans">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Navigation & Header */}
-        <header className="border-b border-slate-800 pb-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-3">
-              <Link
-                href="/"
-                className="p-2 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg border border-slate-800 transition"
-                title="Kembali ke Inspector"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Link>
-              <div className="flex items-center gap-2">
-                <span className="p-2 bg-rose-600/20 text-rose-400 rounded-lg border border-rose-500/30">
-                  <Bell className="w-5 h-5" />
-                </span>
-                <h1 className="text-2xl font-bold tracking-tight text-white">
-                  Automated Monitor & Incident Alerts (Pro)
-                </h1>
-              </div>
+    <main className="min-h-screen bg-[#090a0f] text-zinc-100 font-sans selection:bg-zinc-800 selection:text-white">
+      {/* Top Application Bar */}
+      <nav className="border-b border-zinc-800/80 bg-[#090a0f]/90 backdrop-blur sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="p-1.5 rounded-md text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition"
+              title="Return to Inspector"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Link>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 ring-4 ring-amber-500/20"></span>
+              <span className="font-semibold text-sm tracking-tight text-zinc-100 font-mono">
+                InspectLog Monitor
+              </span>
             </div>
-            <p className="text-slate-400 text-xs md:text-sm pl-12">
-              Pantau website penting otomatis tiap jam. Dapatkan notifikasi instan via Telegram Bot / Webhook jika API 500 atau tombol checkout error.
-            </p>
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-900/60 uppercase">
+              Pro Tier
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowPricingModal(true)}
-              className="inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 border border-amber-500/40 px-3.5 py-2 rounded-lg text-xs font-semibold transition"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-amber-300 hover:text-amber-200 bg-amber-950/40 hover:bg-amber-950/60 border border-amber-900/70 transition"
             >
-              <Flame className="w-4 h-4 text-amber-400" />
-              Paket Pro & Harga
+              <Flame className="w-3.5 h-3.5 text-amber-400" />
+              <span>Plans & Pricing</span>
             </button>
 
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-medium transition shadow-lg shadow-indigo-600/20"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-100 hover:bg-white text-zinc-950 transition border border-zinc-200 shadow-sm"
             >
-              <Plus className="w-4 h-4" />
-              Tambah Monitor
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Monitor</span>
             </button>
           </div>
-        </header>
+        </div>
+      </nav>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <span className="text-xs text-slate-400">Total Monitor Terpasang</span>
-            <div className="text-2xl font-bold text-white mt-1">{monitors.length}</div>
-            <span className="text-[11px] text-slate-500">Website & Halaman Kritis</span>
+      {/* Main Workspace Frame */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Metric Strip */}
+        <div className="border border-zinc-800/80 bg-[#0c0e14] rounded-lg divide-y sm:divide-y-0 sm:divide-x divide-zinc-800/80 grid grid-cols-2 sm:grid-cols-4 text-left">
+          <div className="p-3.5 space-y-1">
+            <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wider block">Installed Probes</span>
+            <div className="text-2xl font-semibold tracking-tight font-mono text-zinc-100">{monitors.length}</div>
+            <div className="text-[10px] text-zinc-400">Critical target URLs</div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <span className="text-xs text-slate-400">Status Aktif</span>
-            <div className="text-2xl font-bold text-emerald-400 mt-1">
+          <div className="p-3.5 space-y-1">
+            <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wider block">Active Probes</span>
+            <div className="text-2xl font-semibold tracking-tight font-mono text-emerald-400">
               {monitors.filter((m) => m.status === "active").length}
             </div>
-            <span className="text-[11px] text-slate-500">Otomatis dipantau scheduler</span>
+            <div className="text-[10px] text-zinc-400">Scheduled by cron engine</div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <span className="text-xs text-slate-400">Kanal Notifikasi Terhubung</span>
-            <div className="text-2xl font-bold text-indigo-400 mt-1">
+          <div className="p-3.5 space-y-1">
+            <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wider block">Alert Destinations</span>
+            <div className="text-2xl font-semibold tracking-tight font-mono text-zinc-100">
               {monitors.filter((m) => m.alert_destination).length}
             </div>
-            <span className="text-[11px] text-slate-500">Telegram Bot & Webhooks</span>
+            <div className="text-[10px] text-zinc-400 font-mono">Telegram & Webhooks</div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <span className="text-xs text-slate-400">Status Gateway Cron</span>
-            <div className="text-sm font-bold text-emerald-400 mt-2 flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <div className="p-3.5 space-y-1">
+            <span className="text-[11px] text-zinc-500 font-mono uppercase tracking-wider block">Cron Gateway</span>
+            <div className="text-sm font-semibold text-emerald-400 mt-2 flex items-center gap-1.5 font-mono">
+              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
               Live & Ready
             </div>
-            <span className="text-[10px] text-slate-500 mt-1">Endpoint: /api/cron/check</span>
+            <div className="text-[10px] text-zinc-500 font-mono">/api/cron/check</div>
           </div>
         </div>
 
-        {/* Monitors List */}
+        {/* Content Section */}
         {loading ? (
-          <div className="text-center py-16 bg-slate-900 border border-slate-800 rounded-2xl">
-            <RefreshCw className="w-8 h-8 text-indigo-400 animate-spin mx-auto mb-2" />
-            <p className="text-xs text-slate-400">Memuat data monitor...</p>
+          <div className="text-center py-16 border border-zinc-800 bg-[#0c0e14] rounded-lg">
+            <RefreshCw className="w-6 h-6 text-zinc-500 animate-spin mx-auto mb-2" />
+            <p className="text-xs text-zinc-500 font-mono">Loading probe configurations...</p>
           </div>
         ) : monitors.length === 0 ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center space-y-4">
-            <ShieldAlert className="w-12 h-12 text-slate-500 mx-auto" />
+          <div className="border border-zinc-800 bg-[#0c0e14] rounded-lg p-10 text-center space-y-3">
+            <ShieldAlert className="w-10 h-10 text-zinc-600 mx-auto" />
             <div className="space-y-1">
-              <h3 className="text-base font-bold text-white">Belum Ada Website yang Dipantau</h3>
-              <p className="text-xs text-slate-400 max-w-md mx-auto">
-                Pasang monitor untuk halaman krusial seperti checkout, login, atau API dashboard agar Anda mendapatkan peringatan Telegram saat terjadi masalah.
+              <h3 className="text-sm font-semibold text-zinc-200">No Web Monitors Configured</h3>
+              <p className="text-xs text-zinc-500 max-w-md mx-auto font-sans">
+                Set up automated recurring inspections for checkout, user authentication, or primary API routes. Instant Telegram or Webhook alerts will trigger on HTTP 500 or script crash.
               </p>
             </div>
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-medium transition"
+              className="inline-flex items-center gap-1.5 bg-zinc-100 hover:bg-white text-zinc-950 px-3.5 py-1.5 rounded-md text-xs font-medium transition border border-zinc-200 shadow-sm"
             >
-              <Plus className="w-4 h-4" />
-              Pasang Monitor Pertama
+              <Plus className="w-3.5 h-3.5" />
+              Configure First Probe
             </button>
           </div>
         ) : (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow">
+          <div className="border border-zinc-800/80 rounded-lg overflow-hidden bg-[#0c0e14]">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-950/80 text-slate-400 font-semibold uppercase tracking-wider border-b border-slate-800">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-[#0e1017] text-zinc-400 font-sans border-b border-zinc-800 text-[11px]">
                   <tr>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4">Nama Monitor</th>
-                    <th className="py-3 px-4">Target URL</th>
-                    <th className="py-3 px-4">Interval</th>
-                    <th className="py-3 px-4">Alert Channel</th>
-                    <th className="py-3 px-4">Health Terakhir</th>
-                    <th className="py-3 px-4 text-right">Aksi</th>
+                    <th className="py-2.5 px-3 w-20">State</th>
+                    <th className="py-2.5 px-3">Probe Label</th>
+                    <th className="py-2.5 px-3">Target Endpoint URL</th>
+                    <th className="py-2.5 px-3 w-28">Interval</th>
+                    <th className="py-2.5 px-3 w-24">Channel</th>
+                    <th className="py-2.5 px-3 w-28">Last Health</th>
+                    <th className="py-2.5 px-3 text-right font-sans w-32">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono">
+                <tbody className="divide-y divide-zinc-800/60">
                   {monitors.map((m) => (
-                    <tr key={m.id} className="hover:bg-slate-800/50 transition">
-                      <td className="py-3 px-4 font-sans">
+                    <tr key={m.id} className="hover:bg-zinc-900/40 transition">
+                      <td className="py-2.5 px-3 font-sans">
                         <button
                           onClick={() => handleToggleStatus(m.id, m.status)}
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold transition ${
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium transition ${
                             m.status === "active"
-                              ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
-                              : "bg-slate-800 text-slate-400 border border-slate-700"
+                              ? "bg-emerald-950/60 text-emerald-300 border border-emerald-900/70"
+                              : "bg-zinc-900 text-zinc-500 border border-zinc-800"
                           }`}
                         >
-                          {m.status === "active" ? <Play className="w-3 h-3 fill-current" /> : <Pause className="w-3 h-3" />}
+                          {m.status === "active" ? <Play className="w-2.5 h-2.5 fill-current" /> : <Pause className="w-2.5 h-2.5" />}
                           {m.status.toUpperCase()}
                         </button>
                       </td>
 
-                      <td className="py-3 px-4 font-bold text-slate-200 font-sans">
+                      <td className="py-2.5 px-3 font-sans font-medium text-zinc-200">
                         {m.name}
                       </td>
 
-                      <td className="py-3 px-4 max-w-xs truncate text-slate-300">
+                      <td className="py-2.5 px-3 max-w-xs truncate text-zinc-300">
                         <span title={m.url}>{m.url}</span>
                       </td>
 
-                      <td className="py-3 px-4 text-slate-400 font-sans">
-                        Tiap {m.interval_minutes} menit
+                      <td className="py-2.5 px-3 text-zinc-400">
+                        Every {m.interval_minutes}m
                       </td>
 
-                      <td className="py-3 px-4 text-slate-300 font-sans">
-                        <span className="bg-slate-800 px-2 py-0.5 rounded text-[10px] uppercase font-bold text-indigo-300">
+                      <td className="py-2.5 px-3">
+                        <span className="bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-mono text-zinc-300">
                           {m.alert_type}
                         </span>
                       </td>
 
-                      <td className="py-3 px-4 font-sans">
+                      <td className="py-2.5 px-3">
                         {m.last_health_score !== null ? (
                           <span
-                            className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
                               m.last_health_score >= 80
-                                ? "bg-emerald-950 text-emerald-400 border border-emerald-800"
-                                : "bg-red-950 text-red-400 border border-red-800"
+                                ? "bg-emerald-950/60 text-emerald-300 border border-emerald-900/70"
+                                : "bg-rose-950/60 text-rose-300 border border-rose-900/70"
                             }`}
                           >
                             {m.last_health_score}/100
                           </span>
                         ) : (
-                          <span className="text-slate-500">Belum dipindai</span>
+                          <span className="text-zinc-600 font-sans text-[11px]">Pending</span>
                         )}
                       </td>
 
-                      <td className="py-3 px-4 text-right font-sans space-x-1.5">
+                      <td className="py-2.5 px-3 text-right font-sans space-x-1.5">
                         <button
                           onClick={() => handleRunNow(m.id)}
                           disabled={runningId === m.id}
-                          className="bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-indigo-300 px-2.5 py-1 rounded text-[11px] transition inline-flex items-center gap-1"
+                          className="bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 text-zinc-300 px-2 py-0.5 rounded text-[11px] border border-zinc-800 transition inline-flex items-center gap-1"
                         >
                           <RefreshCw className={`w-3 h-3 ${runningId === m.id ? "animate-spin" : ""}`} />
-                          Scan Sekarang
+                          Run
                         </button>
 
                         <button
                           onClick={() => handleDeleteMonitor(m.id)}
-                          className="bg-slate-800 hover:bg-red-950/80 text-slate-400 hover:text-red-400 p-1 rounded transition"
-                          title="Hapus"
+                          className="bg-zinc-900 hover:bg-rose-950 text-zinc-500 hover:text-rose-400 p-1 rounded border border-zinc-800 transition"
+                          title="Delete probe"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3 h-3" />
                         </button>
                       </td>
                     </tr>
@@ -386,66 +385,66 @@ export default function MonitoringPage() {
         {/* Modal: Add Monitor */}
         {showAddModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="bg-[#0c0e14] border border-zinc-800 rounded-xl w-full max-w-lg p-5 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
                 <div className="flex items-center gap-2">
-                  <Bell className="w-4 h-4 text-indigo-400" />
-                  <h3 className="font-bold text-base text-white">Pasang Monitor Website Baru</h3>
+                  <Bell className="w-4 h-4 text-zinc-400" />
+                  <h3 className="font-semibold text-xs text-zinc-100 font-mono">Create Scheduled Probe</h3>
                 </div>
                 <button
                   onClick={() => setShowAddModal(false)}
-                  className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                  className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreateMonitor} className="space-y-4 text-xs">
+              <form onSubmit={handleCreateMonitor} className="space-y-3.5 text-xs">
                 <div>
-                  <label className="text-slate-300 block mb-1 font-medium">Nama Label Monitor *</label>
+                  <label className="text-zinc-400 block mb-1">Probe Label *</label>
                   <input
                     type="text"
                     required
-                    placeholder="Contoh: Checkout Production Toko Online"
+                    placeholder="e.g. Production Checkout Flow"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full bg-[#090a0f] border border-zinc-800 rounded-md p-2 text-zinc-200 focus:outline-none focus:border-zinc-600 font-sans text-xs"
                   />
                 </div>
 
                 <div>
-                  <label className="text-slate-300 block mb-1 font-medium">Target URL yang Dipantau *</label>
+                  <label className="text-zinc-400 block mb-1">Target Endpoint URL *</label>
                   <input
                     type="text"
                     required
-                    placeholder="https://toko.com/checkout"
+                    placeholder="https://mycompany.com/checkout"
                     value={newUrl}
                     onChange={(e) => setNewUrl(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full bg-[#090a0f] border border-zinc-800 rounded-md p-2 text-zinc-200 font-mono text-xs focus:outline-none focus:border-zinc-600"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-slate-300 block mb-1 font-medium">Interval Pengecekan</label>
+                    <label className="text-zinc-400 block mb-1">Probe Frequency</label>
                     <select
                       value={newInterval}
                       onChange={(e) => setNewInterval(Number(e.target.value))}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 focus:outline-none"
+                      className="w-full bg-[#090a0f] border border-zinc-800 rounded-md p-2 text-zinc-200 focus:outline-none text-xs font-mono"
                     >
-                      <option value={30}>Tiap 30 Menit</option>
-                      <option value={60}>Tiap 1 Jam (Standar)</option>
-                      <option value={360}>Tiap 6 Jam</option>
-                      <option value={1440}>Tiap 24 Jam</option>
+                      <option value={30}>Every 30 mins</option>
+                      <option value={60}>Every 1 hour (Default)</option>
+                      <option value={360}>Every 6 hours</option>
+                      <option value={1440}>Every 24 hours</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="text-slate-300 block mb-1 font-medium">Kanal Alert</label>
+                    <label className="text-zinc-400 block mb-1">Alert Channel</label>
                     <select
                       value={newAlertType}
                       onChange={(e) => setNewAlertType(e.target.value as any)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 focus:outline-none"
+                      className="w-full bg-[#090a0f] border border-zinc-800 rounded-md p-2 text-zinc-200 focus:outline-none text-xs font-mono"
                     >
                       <option value="telegram">Telegram Bot</option>
                       <option value="webhook">Webhook (Discord / Slack)</option>
@@ -455,19 +454,19 @@ export default function MonitoringPage() {
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-slate-300 font-medium">
+                    <label className="text-zinc-400">
                       {newAlertType === "telegram"
                         ? "Telegram BOT_TOKEN:CHAT_ID *"
-                        : "URL Webhook (Discord / Slack) *"}
+                        : "Webhook URL (Discord / Slack) *"}
                     </label>
                     <button
                       type="button"
                       onClick={handleTestAlert}
                       disabled={testingAlert || !newDestination.trim()}
-                      className="text-[11px] text-indigo-400 hover:text-indigo-300 disabled:opacity-40 inline-flex items-center gap-1"
+                      className="text-[11px] text-zinc-400 hover:text-white disabled:opacity-40 inline-flex items-center gap-1 font-mono"
                     >
                       <Send className="w-3 h-3" />
-                      {testingAlert ? "Menguji..." : "Test Kirim"}
+                      {testingAlert ? "Testing..." : "Send Test"}
                     </button>
                   </div>
 
@@ -481,43 +480,43 @@ export default function MonitoringPage() {
                     }
                     value={newDestination}
                     onChange={(e) => setNewDestination(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 font-mono text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full bg-[#090a0f] border border-zinc-800 rounded-md p-2 text-zinc-200 font-mono text-[11px] focus:outline-none focus:border-zinc-600"
                   />
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <p className="text-[10px] text-zinc-500 mt-1">
                     {newAlertType === "telegram"
-                      ? "Format: BOT_TOKEN dari @BotFather dan CHAT_ID dari @userinfobot (dipisah titik dua ':')."
-                      : "Salin webhook URL dari server Discord atau Slack channel Anda."}
+                      ? "Format: BOT_TOKEN from @BotFather and CHAT_ID from @userinfobot (separated by ':')."
+                      : "Paste the webhook URL from Discord or Slack channel integrations."}
                   </p>
                 </div>
 
                 {/* Test Result Message */}
                 {testResult && (
                   <div
-                    className={`p-3 rounded-lg border text-xs flex items-center gap-2 ${
+                    className={`p-2.5 rounded border text-xs flex items-center gap-2 ${
                       testResult.success
                         ? "bg-emerald-950/40 border-emerald-800 text-emerald-300"
-                        : "bg-red-950/40 border-red-800 text-red-300"
+                        : "bg-rose-950/40 border-rose-800 text-rose-300"
                     }`}
                   >
-                    {testResult.success ? <CheckCircle className="w-4 h-4 shrink-0" /> : <XCircle className="w-4 h-4 shrink-0" />}
+                    {testResult.success ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 shrink-0" />}
                     <span>{testResult.message}</span>
                   </div>
                 )}
 
-                <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
                   <button
                     type="button"
                     onClick={() => setShowAddModal(false)}
-                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-2 rounded-lg font-medium transition"
+                    className="bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded text-xs transition"
                   >
-                    Batal
+                    Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={savingMonitor}
-                    className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition"
+                    className="bg-zinc-100 hover:bg-white text-zinc-950 font-medium px-3.5 py-1.5 rounded text-xs transition border border-zinc-200 disabled:opacity-50"
                   >
-                    {savingMonitor ? "Menyimpan..." : "Simpan & Aktifkan"}
+                    {savingMonitor ? "Saving..." : "Save Probe"}
                   </button>
                 </div>
               </form>
@@ -528,83 +527,83 @@ export default function MonitoringPage() {
         {/* Modal: Pricing & Pro Tier */}
         {showPricingModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl p-6 shadow-2xl space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="bg-[#0c0e14] border border-zinc-800 rounded-xl w-full max-w-2xl p-5 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
                 <div className="flex items-center gap-2">
-                  <Flame className="w-5 h-5 text-amber-400" />
-                  <h3 className="font-bold text-lg text-white">Paket Langganan & Fitur Pro</h3>
+                  <Flame className="w-4 h-4 text-amber-400" />
+                  <h3 className="font-semibold text-sm text-zinc-100 font-mono">Subscription Tiers & Pro Monitoring</h3>
                 </div>
                 <button
                   onClick={() => setShowPricingModal(false)}
-                  className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                  className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {/* Free Tier */}
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-3">
-                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Free Beta</div>
-                  <div className="text-2xl font-bold text-white">Rp 0 <span className="text-xs text-slate-500 font-normal">/ selamanya</span></div>
-                  <p className="text-xs text-slate-400">Cocok untuk pengecekan manual dan uji coba awal.</p>
+                <div className="bg-[#090a0f] border border-zinc-800 rounded-lg p-4 space-y-2.5">
+                  <div className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider">Free Community</div>
+                  <div className="text-xl font-semibold text-white font-mono">
+                    Rp 0 <span className="text-xs text-zinc-500 font-normal">/ forever</span>
+                  </div>
+                  <p className="text-xs text-zinc-400">Essential for manual inspection and individual debugging.</p>
 
-                  <ul className="text-xs text-slate-300 space-y-2 pt-2">
+                  <ul className="text-xs text-zinc-300 space-y-2 pt-2 border-t border-zinc-800/80">
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>Scan manual tanpa batas</span>
+                      <span>Unlimited manual deep inspections</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>Multi-Page Crawler (max 3 halaman)</span>
+                      <span>Multi-Page Crawler (max 3 pages)</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>Shareable Report URL publik</span>
+                      <span>Shareable public report links</span>
                     </li>
-                    <li className="flex items-center gap-2 text-slate-500">
+                    <li className="flex items-center gap-2 text-zinc-600">
                       <X className="w-3.5 h-3.5 shrink-0" />
-                      <span>Tanpa background auto-monitoring</span>
+                      <span>No background recurring probe alerts</span>
                     </li>
                   </ul>
 
                   <button
                     disabled
-                    className="w-full bg-slate-800 text-slate-400 py-2 rounded-lg text-xs font-medium cursor-not-allowed mt-4"
+                    className="w-full bg-zinc-900 text-zinc-500 py-1.5 rounded text-xs font-mono border border-zinc-800 mt-2 cursor-not-allowed"
                   >
-                    Paket Aktif Saat Ini
+                    Active Tier
                   </button>
                 </div>
 
                 {/* Pro Tier */}
-                <div className="bg-gradient-to-b from-indigo-950/40 to-slate-950 border border-indigo-500/50 rounded-xl p-5 space-y-3 relative shadow-lg shadow-indigo-500/10">
-                  <div className="absolute -top-2.5 right-4 bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
-                    Paling Populer
+                <div className="bg-[#090a0f] border border-amber-900/60 rounded-lg p-4 space-y-2.5 relative">
+                  <div className="absolute top-3.5 right-3.5 bg-amber-950/80 text-amber-300 border border-amber-800/80 text-[10px] font-mono px-2 py-0.5 rounded">
+                    Popular
                   </div>
-                  <div className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Pro Monitoring</div>
-                  <div className="text-2xl font-bold text-white">Rp 149.000 <span className="text-xs text-slate-500 font-normal">/ bulan</span></div>
-                  <p className="text-xs text-slate-300">Untuk pemilik bisnis, e-commerce, & agency digital.</p>
+                  <div className="text-[11px] font-mono text-amber-400 uppercase tracking-wider">Pro Monitoring</div>
+                  <div className="text-xl font-semibold text-white font-mono">
+                    Rp 149.000 <span className="text-xs text-zinc-500 font-normal">/ month</span>
+                  </div>
+                  <p className="text-xs text-zinc-300">Continuous health checks for agencies & e-commerce teams.</p>
 
-                  <ul className="text-xs text-slate-200 space-y-2 pt-2">
+                  <ul className="text-xs text-zinc-200 space-y-2 pt-2 border-t border-zinc-800/80">
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span><strong>10 Website Monitor</strong> otomatis berkala</span>
+                      <span><strong>10 Automated recurring probes</strong></span>
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>Interval fleksibel (Tiap 15-30 menit)</span>
+                      <span>Flexible intervals (Every 15-30m)</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>Notifikasi instan Telegram Bot & Discord</span>
+                      <span>Instant Telegram & Discord incident alerts</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>Multi-Page Crawler (hingga 10 halaman)</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>Peringatan checkout breakdown otomatis</span>
+                      <span>Deep crawler (up to 10 pages per run)</span>
                     </li>
                   </ul>
 
@@ -620,15 +619,15 @@ export default function MonitoringPage() {
                         if (data.success && data.paymentUrl) {
                           window.location.href = data.paymentUrl;
                         } else {
-                          alert(data.error || "Gagal membuat invoice. Pastikan Anda sudah login.");
+                          alert(data.error || "Failed to create invoice. Please ensure you are signed in.");
                         }
                       } catch {
-                        alert("Gagal menghubungi server pembayaran.");
+                        alert("Failed to connect to billing server.");
                       }
                     }}
-                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold transition shadow-md mt-4"
+                    className="w-full bg-zinc-100 hover:bg-white text-zinc-950 font-medium py-1.5 rounded text-xs transition border border-zinc-200 shadow-sm mt-2"
                   >
-                    Upgrade ke Pro Sekarang
+                    Upgrade to Pro Tier
                   </button>
                 </div>
               </div>
