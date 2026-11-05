@@ -182,7 +182,8 @@ export default function Home() {
   const [fbSubmitting, setFbSubmitting] = useState(false);
   const [fbSuccess, setFbSuccess] = useState(false);
 
-  // User Auth state
+  // User Auth toggle (Set to true to re-enable Login & User Accounts, see PRO_MONETIZATION_GUIDE.md)
+  const ENABLE_AUTH_SYSTEM = false;
   const [currentUser, setCurrentUser] = useState<{
     id: string;
     email: string;
@@ -591,40 +592,42 @@ ${result.diagnostics
               <div className="h-4 w-px bg-zinc-800"></div>
             </div>
 
-            {/* User Account / Sign In Button - Elegant Dark Workbench Theme */}
-            {currentUser ? (
-              <div className="flex items-center gap-2 bg-zinc-900/90 border border-zinc-800 pl-1.5 pr-2.5 py-1 rounded-lg text-xs">
-                {currentUser.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={currentUser.avatar_url} alt={currentUser.name} className="w-5 h-5 rounded-full object-cover" />
-                ) : (
-                  <div className="w-5 h-5 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-mono text-[10px] text-zinc-300">
-                    {currentUser.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <span className="font-medium text-zinc-200 max-w-[90px] sm:max-w-[120px] truncate">{currentUser.name}</span>
-                <span className="hidden sm:inline-block text-[10px] uppercase font-mono px-1 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
-                  {currentUser.role === "pro" ? "PRO" : "MEMBER"}
-                </span>
+            {/* User Account / Sign In Button (Guarded by ENABLE_AUTH_SYSTEM) */}
+            {ENABLE_AUTH_SYSTEM && (
+              currentUser ? (
+                <div className="flex items-center gap-2 bg-zinc-900/90 border border-zinc-800 pl-1.5 pr-2.5 py-1 rounded-lg text-xs">
+                  {currentUser.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={currentUser.avatar_url} alt={currentUser.name} className="w-5 h-5 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-mono text-[10px] text-zinc-300">
+                      {currentUser.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="font-medium text-zinc-200 max-w-[90px] sm:max-w-[120px] truncate">{currentUser.name}</span>
+                  <span className="hidden sm:inline-block text-[10px] uppercase font-mono px-1 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                    {currentUser.role === "pro" ? "PRO" : "MEMBER"}
+                  </span>
+                  <button
+                    onClick={handleLogout}
+                    className="text-zinc-500 hover:text-rose-400 p-0.5 transition ml-0.5"
+                    title="Keluar"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
                 <button
-                  onClick={handleLogout}
-                  className="text-zinc-500 hover:text-rose-400 p-0.5 transition ml-0.5"
-                  title="Keluar"
+                  onClick={() => {
+                    setAuthTab("login");
+                    setShowAuthModal(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-200 hover:text-white bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 hover:border-zinc-500 shadow-sm transition active:scale-95"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
+                  <User className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Masuk</span>
                 </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => {
-                  setAuthTab("login");
-                  setShowAuthModal(true);
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-200 hover:text-white bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 hover:border-zinc-500 shadow-sm transition active:scale-95"
-              >
-                <User className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Masuk</span>
-              </button>
+              )
             )}
 
             {/* Quick Export/Share Icons when result is present */}
@@ -2165,8 +2168,8 @@ ${result.diagnostics
           </div>
         )}
 
-        {/* Modal: User Auth (Clean Developer Login & Register) */}
-        {showAuthModal && (
+        {/* Modal: User Auth (Guarded by ENABLE_AUTH_SYSTEM, see PRO_MONETIZATION_GUIDE.md) */}
+        {ENABLE_AUTH_SYSTEM && showAuthModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
             <div className="bg-[#0c0e14] border border-zinc-800 rounded-xl w-full max-w-sm p-5 shadow-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
@@ -2348,26 +2351,28 @@ ${result.diagnostics
           <span>Monitor</span>
         </Link>
 
-        {currentUser ? (
-          <button
-            onClick={handleLogout}
-            className="flex flex-col items-center gap-1 text-zinc-400 hover:text-rose-400"
-            title="Keluar akun"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="truncate max-w-[50px]">{currentUser.name.split(" ")[0]}</span>
-          </button>
-        ) : (
-          <button
-            onClick={() => {
-              setAuthTab("login");
-              setShowAuthModal(true);
-            }}
-            className="flex flex-col items-center gap-1 text-zinc-400 hover:text-white"
-          >
-            <User className="w-4 h-4" />
-            <span>Masuk</span>
-          </button>
+        {ENABLE_AUTH_SYSTEM && (
+          currentUser ? (
+            <button
+              onClick={handleLogout}
+              className="flex flex-col items-center gap-1 text-zinc-400 hover:text-rose-400"
+              title="Keluar akun"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="truncate max-w-[50px]">{currentUser.name.split(" ")[0]}</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setAuthTab("login");
+                setShowAuthModal(true);
+              }}
+              className="flex flex-col items-center gap-1 text-zinc-400 hover:text-white"
+            >
+              <User className="w-4 h-4" />
+              <span>Masuk</span>
+            </button>
+          )
         )}
       </nav>
     </main>

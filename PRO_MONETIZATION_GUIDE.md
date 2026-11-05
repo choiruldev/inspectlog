@@ -18,9 +18,20 @@ Sistem billing InspectLog dibangun dengan komponen lengkap:
 
 ---
 
-## 2. Cara Mengaktifkan Kembali Tampilan Berbayar (2 Langkah)
+## 2. Cara Mengaktifkan Kembali Tampilan Berbayar & Login (3 Langkah)
 
-### Langkah 1: Aktifkan Flag di Halaman Monitoring
+### Langkah 1: Aktifkan Sistem Login & Akun Pengguna
+Buka file [`app/page.tsx`](file:///Users/irul/Documents/PROJECT/inspect-web/app/page.tsx) baris ~185:
+```typescript
+// UBAH DARI:
+const ENABLE_AUTH_SYSTEM = false;
+
+// MENJADI:
+const ENABLE_AUTH_SYSTEM = true;
+```
+*Efek*: Tombol **"Masuk"**, navigasi akun pengguna di navbar & mobile bar, serta modal pop-up Login/Daftar (Email + Google OAuth) otomatis aktif kembali.
+
+### Langkah 2: Aktifkan Flag di Halaman Monitoring
 Buka file [`app/monitoring/page.tsx`](file:///Users/irul/Documents/PROJECT/inspect-web/app/monitoring/page.tsx) baris ~62:
 ```typescript
 // UBAH DARI:
@@ -31,7 +42,7 @@ const ENABLE_PAID_TIER = true;
 ```
 *Efek*: Tombol **"Plans & Pricing"**, modal paket langganan (Bulanan & Tahunan), dan opsi upgrade Pro otomatis kembali muncul di dashboard monitoring.
 
-### Langkah 2: Kembalikan Badge "Pro" di Navbar Utama
+### Langkah 3: Kembalikan Badge "Pro" di Navbar Utama
 Buka file [`app/page.tsx`](file:///Users/irul/Documents/PROJECT/inspect-web/app/page.tsx) baris ~575:
 ```tsx
 <Link href="/monitoring" className="...">
