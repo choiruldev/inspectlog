@@ -59,7 +59,8 @@ export default function MonitoringPage() {
   // Run Now state
   const [runningId, setRunningId] = useState<string | null>(null);
 
-  // Pro Pricing Modal state
+  // Pro Pricing Modal toggle (Set to true to re-enable paid monetization, see PRO_MONETIZATION_GUIDE.md)
+  const ENABLE_PAID_TIER = false;
   const [showPricingModal, setShowPricingModal] = useState(false);
 
   const fetchMonitors = async () => {
@@ -201,24 +202,26 @@ export default function MonitoringPage() {
               <ArrowLeft className="w-4 h-4" />
             </Link>
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-400 ring-4 ring-amber-500/20"></span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 ring-4 ring-emerald-500/20"></span>
               <span className="font-semibold text-sm tracking-tight text-zinc-100 font-mono">
                 InspectLog Monitor
               </span>
             </div>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-900/60 uppercase">
-              Pro Tier
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-900/60 uppercase">
+              Community
             </span>
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowPricingModal(true)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-amber-300 hover:text-amber-200 bg-amber-950/40 hover:bg-amber-950/60 border border-amber-900/70 transition"
-            >
-              <Flame className="w-3.5 h-3.5 text-amber-400" />
-              <span>Plans & Pricing</span>
-            </button>
+            {ENABLE_PAID_TIER && (
+              <button
+                onClick={() => setShowPricingModal(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-amber-300 hover:text-amber-200 bg-amber-950/40 hover:bg-amber-950/60 border border-amber-900/70 transition"
+              >
+                <Flame className="w-3.5 h-3.5 text-amber-400" />
+                <span>Plans & Pricing</span>
+              </button>
+            )}
 
             <button
               onClick={() => setShowAddModal(true)}
@@ -568,8 +571,8 @@ export default function MonitoringPage() {
           </div>
         )}
 
-        {/* Modal: Pricing & Pro Tier */}
-        {showPricingModal && (
+        {/* Modal: Pricing & Pro Tier (Guarded by ENABLE_PAID_TIER, see PRO_MONETIZATION_GUIDE.md) */}
+        {ENABLE_PAID_TIER && showPricingModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <div className="bg-[#0c0e14] border border-zinc-800 rounded-xl w-full max-w-2xl p-5 shadow-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">

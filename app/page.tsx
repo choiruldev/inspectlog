@@ -576,9 +576,8 @@ ${result.diagnostics
                 href="/monitoring"
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-300 hover:text-white bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition"
               >
-                <Bell className="w-3.5 h-3.5 text-amber-400" />
+                <Bell className="w-3.5 h-3.5 text-zinc-400" />
                 <span>Monitor</span>
-                <span className="text-[10px] uppercase font-bold text-amber-400 px-1 rounded bg-amber-950/60 border border-amber-900/50">Pro</span>
               </Link>
 
               <button
@@ -605,7 +604,7 @@ ${result.diagnostics
                 )}
                 <span className="font-medium text-zinc-200 max-w-[90px] sm:max-w-[120px] truncate">{currentUser.name}</span>
                 <span className="hidden sm:inline-block text-[10px] uppercase font-mono px-1 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
-                  {currentUser.role}
+                  {currentUser.role === "pro" ? "PRO" : "MEMBER"}
                 </span>
                 <button
                   onClick={handleLogout}
@@ -2345,9 +2344,8 @@ ${result.diagnostics
           href="/monitoring"
           className="flex flex-col items-center gap-1 text-zinc-400 hover:text-white relative"
         >
-          <Bell className="w-4 h-4 text-amber-400" />
+          <Bell className="w-4 h-4" />
           <span>Monitor</span>
-          <span className="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-amber-400"></span>
         </Link>
 
         {currentUser ? (
