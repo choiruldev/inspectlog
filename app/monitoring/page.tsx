@@ -222,10 +222,10 @@ export default function MonitoringPage() {
 
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-100 hover:bg-white text-zinc-950 transition border border-zinc-200 shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition shadow-sm active:scale-95"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Add Monitor</span>
+              <span>Tambah Monitor</span>
             </button>
           </div>
         </div>
@@ -284,7 +284,7 @@ export default function MonitoringPage() {
             </div>
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-1.5 bg-zinc-100 hover:bg-white text-zinc-950 px-3.5 py-1.5 rounded-md text-xs font-medium transition border border-zinc-200 shadow-sm"
+              className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition shadow-sm active:scale-95"
             >
               <Plus className="w-3.5 h-3.5" />
               Configure First Probe
@@ -558,7 +558,7 @@ export default function MonitoringPage() {
                   <button
                     type="submit"
                     disabled={savingMonitor}
-                    className="bg-zinc-100 hover:bg-white text-zinc-950 font-medium px-3.5 py-1.5 rounded text-xs transition border border-zinc-200 disabled:opacity-50"
+                    className="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold px-4 py-2 rounded-lg text-xs transition shadow-sm disabled:opacity-50 active:scale-95"
                   >
                     {savingMonitor ? "Saving..." : "Save Probe"}
                   </button>
@@ -669,7 +669,7 @@ export default function MonitoringPage() {
                         alert("Failed to connect to billing server.");
                       }
                     }}
-                    className="w-full bg-zinc-100 hover:bg-white text-zinc-950 font-medium py-1.5 rounded text-xs transition border border-zinc-200 shadow-sm mt-2"
+                    className="w-full bg-amber-400 hover:bg-amber-300 text-zinc-950 font-semibold py-2 rounded-lg text-xs transition shadow-sm mt-2 active:scale-95"
                   >
                     Upgrade to Pro Tier
                   </button>

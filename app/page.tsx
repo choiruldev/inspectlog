@@ -202,6 +202,10 @@ export default function Home() {
   const [aiDiagnoses, setAiDiagnoses] = useState<Record<number, any>>({});
   const [loadingAiIdx, setLoadingAiIdx] = useState<number | null>(null);
 
+  // PWA Install state
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
+
   const fetchCurrentUser = async () => {
     try {
       const res = await fetch("/api/auth/me");
@@ -326,7 +330,26 @@ export default function Home() {
   useEffect(() => {
     fetchHistory();
     fetchCurrentUser();
+
+    const handleBeforeInstall = (e: any) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+    if (typeof window !== "undefined" && window.matchMedia("(display-mode: standalone)").matches) {
+      setIsStandalone(true);
+    }
+    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
   }, []);
+
+  const handleInstallApp = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const outcome = await installPrompt.userChoice;
+    if (outcome && outcome.outcome === "accepted") {
+      setInstallPrompt(null);
+    }
+  };
 
   const loadPastScan = async (scanId: string) => {
     setLoading(true);
@@ -518,56 +541,60 @@ ${result.diagnostics
     <main className="min-h-screen bg-[#090a0f] text-zinc-100 font-sans selection:bg-zinc-800 selection:text-white">
       {/* Top Application Bar */}
       <nav className="border-b border-zinc-800/80 bg-[#090a0f]/90 backdrop-blur sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
           {/* Brand */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 ring-4 ring-emerald-500/20"></span>
+          <div className="flex items-center gap-2.5">
+            <Link href="/" className="flex items-center gap-2 group">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 ring-4 ring-emerald-500/20 group-hover:scale-110 transition"></span>
               <span className="font-semibold text-sm tracking-tight text-zinc-100 font-mono">InspectLog</span>
-            </div>
-            <span className="hidden sm:inline-block text-[11px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">
-              v1.0-beta
+            </Link>
+            <span className="hidden sm:inline-block text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">
+              v1.0
             </span>
-            <span className="hidden md:inline-block text-xs text-zinc-500">
+            <span className="hidden lg:inline-block text-xs text-zinc-500">
               Web & API Network Runtime Inspector
             </span>
           </div>
 
           {/* Nav Actions */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                fetchHistory();
-                setShowHistory(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-300 hover:text-white bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 transition"
-            >
-              <History className="w-3.5 h-3.5 text-zinc-400" />
-              <span>History</span>
-              <span className="text-[10px] text-zinc-400 font-mono">({historyList.length})</span>
-            </button>
+            {/* Desktop Navigation Links */}
+            <div className="hidden sm:flex items-center gap-2">
+              <button
+                onClick={() => {
+                  fetchHistory();
+                  setShowHistory(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-300 hover:text-white bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition"
+              >
+                <History className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Riwayat</span>
+                <span className="text-[10px] text-zinc-400 font-mono">({historyList.length})</span>
+              </button>
 
-            <Link
-              href="/monitoring"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-300 hover:text-white bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 transition"
-            >
-              <Bell className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Monitor</span>
-              <span className="text-[10px] uppercase font-bold text-amber-400 px-1 rounded bg-amber-950/60 border border-amber-900/50">Pro</span>
-            </Link>
+              <Link
+                href="/monitoring"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-300 hover:text-white bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition"
+              >
+                <Bell className="w-3.5 h-3.5 text-amber-400" />
+                <span>Monitor</span>
+                <span className="text-[10px] uppercase font-bold text-amber-400 px-1 rounded bg-amber-950/60 border border-amber-900/50">Pro</span>
+              </Link>
 
-            <button
-              onClick={() => setShowFeedback(true)}
-              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition"
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>Feedback</span>
-            </button>
+              <button
+                onClick={() => setShowFeedback(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 border border-transparent hover:border-zinc-800 transition"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Feedback</span>
+              </button>
 
-            <div className="h-4 w-px bg-zinc-800 hidden sm:block"></div>
+              <div className="h-4 w-px bg-zinc-800"></div>
+            </div>
 
+            {/* User Account / Sign In Button - Elegant Dark Workbench Theme */}
             {currentUser ? (
-              <div className="flex items-center gap-2 bg-zinc-900/90 border border-zinc-800 pl-1.5 pr-2.5 py-1 rounded-md text-xs">
+              <div className="flex items-center gap-2 bg-zinc-900/90 border border-zinc-800 pl-1.5 pr-2.5 py-1 rounded-lg text-xs">
                 {currentUser.avatar_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={currentUser.avatar_url} alt={currentUser.name} className="w-5 h-5 rounded-full object-cover" />
@@ -576,14 +603,14 @@ ${result.diagnostics
                     {currentUser.name.charAt(0).toUpperCase()}
                   </div>
                 )}
-                <span className="font-medium text-zinc-200 max-w-[100px] truncate">{currentUser.name}</span>
-                <span className="text-[10px] uppercase font-mono px-1 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                <span className="font-medium text-zinc-200 max-w-[90px] sm:max-w-[120px] truncate">{currentUser.name}</span>
+                <span className="hidden sm:inline-block text-[10px] uppercase font-mono px-1 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
                   {currentUser.role}
                 </span>
                 <button
                   onClick={handleLogout}
                   className="text-zinc-500 hover:text-rose-400 p-0.5 transition ml-0.5"
-                  title="Sign out"
+                  title="Keluar"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
@@ -594,25 +621,26 @@ ${result.diagnostics
                   setAuthTab("login");
                   setShowAuthModal(true);
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-100 hover:bg-white text-zinc-950 transition border border-zinc-200 shadow-sm"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-200 hover:text-white bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/80 hover:border-zinc-500 shadow-sm transition active:scale-95"
               >
-                <User className="w-3.5 h-3.5" />
-                <span>Sign In</span>
+                <User className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Masuk</span>
               </button>
             )}
 
+            {/* Quick Export/Share Icons when result is present */}
             {result && (
-              <div className="flex items-center gap-1 pl-1">
+              <div className="flex items-center gap-1 pl-1 border-l border-zinc-800 ml-1">
                 <button
                   onClick={copyShareLink}
-                  title="Copy shareable link"
+                  title="Salin tautan laporan"
                   className="p-1.5 rounded-md text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition"
                 >
                   {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
                 </button>
                 <button
                   onClick={exportHAR}
-                  title="Export HTTP Archive (.HAR 1.2)"
+                  title="Unduh file .HAR 1.2"
                   className="p-1.5 rounded-md text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition font-mono text-[11px] flex items-center gap-1"
                 >
                   <Download className="w-3.5 h-3.5 text-sky-400" />
@@ -620,7 +648,7 @@ ${result.diagnostics
                 </button>
                 <button
                   onClick={exportReport}
-                  title="Export JSON report"
+                  title="Unduh JSON report"
                   className="p-1.5 rounded-md text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition font-mono text-[11px]"
                 >
                   <FileJson className="w-3.5 h-3.5" />
@@ -632,180 +660,198 @@ ${result.diagnostics
       </nav>
 
       {/* Main Workspace Frame */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 sm:pb-8 space-y-6">
         {/* Terminal Input Station */}
         <section className="border border-zinc-800/80 bg-zinc-950/70 rounded-xl overflow-hidden shadow-sm">
           <form onSubmit={handleInspect} className="divide-y divide-zinc-800/80">
             {/* Primary Command Input Bar */}
-            <div className="p-3 sm:p-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+            <div className="p-3 sm:p-4 flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-center">
               <div className="relative flex-1 flex items-center">
-                <div className="absolute left-3.5 text-zinc-500 font-mono text-xs select-none">
-                  url:
-                </div>
+                <Globe className="absolute left-3.5 w-4 h-4 text-zinc-500 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="https://example.com/checkout or https://api.myproject.com/v1"
+                  placeholder="https://website-kamu.com/checkout atau endpoint API..."
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  className="w-full bg-[#0d0f17] border border-zinc-800 focus:border-zinc-500 rounded-lg pl-12 pr-4 py-2.5 text-zinc-100 placeholder-zinc-600 font-mono text-xs sm:text-sm focus:outline-none transition"
+                  className="w-full bg-[#0d0f17] border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-lg pl-10 pr-9 py-2.5 text-zinc-100 placeholder-zinc-500 font-mono text-xs sm:text-sm focus:outline-none transition"
                 />
-              </div>
-
-              {/* Mode Control */}
-              <div className="flex items-center bg-[#0d0f17] border border-zinc-800 rounded-lg p-0.5 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setCrawlMode("single")}
-                  className={`px-3 py-1.5 rounded-md font-medium transition ${
-                    crawlMode === "single"
-                      ? "bg-zinc-800 text-white shadow-sm"
-                      : "text-zinc-400 hover:text-zinc-200"
-                  }`}
-                >
-                  Single Page
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCrawlMode("multi")}
-                  className={`px-3 py-1.5 rounded-md font-medium transition flex items-center gap-1.5 ${
-                    crawlMode === "multi"
-                      ? "bg-zinc-800 text-white shadow-sm"
-                      : "text-zinc-400 hover:text-zinc-200"
-                  }`}
-                >
-                  <Compass className="w-3.5 h-3.5" />
-                  Crawler
-                </button>
-              </div>
-
-              {/* Device Selector */}
-              <div className="flex items-center bg-[#0d0f17] border border-zinc-800 rounded-lg p-0.5 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setDevice("desktop")}
-                  className={`px-2.5 py-1.5 rounded-md font-medium transition flex items-center gap-1.5 ${
-                    device === "desktop"
-                      ? "bg-zinc-800 text-white shadow-sm"
-                      : "text-zinc-400 hover:text-zinc-200"
-                  }`}
-                  title="Desktop Viewport (1440x900)"
-                >
-                  <Monitor className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Desktop</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDevice("mobile")}
-                  className={`px-2.5 py-1.5 rounded-md font-medium transition flex items-center gap-1.5 ${
-                    device === "mobile"
-                      ? "bg-zinc-800 text-white shadow-sm"
-                      : "text-zinc-400 hover:text-zinc-200"
-                  }`}
-                  title="Mobile Viewport (iPhone 390x844)"
-                >
-                  <Smartphone className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Mobile</span>
-                </button>
-              </div>
-
-              {/* Page limit selector */}
-              {crawlMode === "multi" && (
-                <div className="flex items-center bg-[#0d0f17] border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs">
-                  <span className="text-zinc-500 mr-2 font-mono">max:</span>
-                  <select
-                    value={maxPages}
-                    onChange={(e) => setMaxPages(Number(e.target.value))}
-                    className="bg-transparent text-zinc-200 focus:outline-none font-mono text-xs cursor-pointer"
+                {url && (
+                  <button
+                    type="button"
+                    onClick={() => setUrl("")}
+                    className="absolute right-3 text-zinc-500 hover:text-zinc-300 p-0.5"
+                    title="Hapus URL"
                   >
-                    <option value={3} className="bg-zinc-900">3 pages</option>
-                    <option value={5} className="bg-zinc-900">5 pages</option>
-                    <option value={10} className="bg-zinc-900">10 pages</option>
-                  </select>
-                </div>
-              )}
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
 
               {/* Execution CTA */}
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-zinc-100 hover:bg-white disabled:bg-zinc-800 disabled:text-zinc-600 text-zinc-950 font-medium px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 text-xs transition border border-zinc-200 shadow-sm min-w-[120px]"
+                className="bg-emerald-500 hover:bg-emerald-400 disabled:bg-zinc-800 disabled:text-zinc-600 text-zinc-950 font-semibold px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 text-xs sm:text-sm transition shadow-sm active:scale-95 shrink-0"
               >
                 {loading ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>{crawlMode === "multi" ? "Crawling..." : "Inspecting..."}</span>
+                    <span>{crawlMode === "multi" ? "Menjelajah..." : "Memindai..."}</span>
                   </>
                 ) : (
                   <>
-                    <span>Inspect Target</span>
+                    <span>Periksa Website</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </>
                 )}
               </button>
             </div>
 
-            {/* Authentication & Access Options Strip */}
-            <div className="p-3 sm:px-4 bg-[#0a0c13] flex flex-col gap-2.5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-                  <Shield className="w-3.5 h-3.5 text-zinc-500" />
-                  <span className="font-medium">Access & Auth Context:</span>
+            {/* Quick Segmented Options Strip (Horizontal scrollable, touch-friendly, intuitive) */}
+            <div className="px-3 py-2.5 sm:px-4 bg-[#0a0c13] flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5 overflow-x-auto text-xs">
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Viewport / Layar */}
+                <div className="flex items-center bg-[#0d0f17] border border-zinc-800 rounded-lg p-0.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setDevice("desktop")}
+                    className={`px-2.5 py-1 rounded-md font-medium transition flex items-center gap-1.5 ${
+                      device === "desktop"
+                        ? "bg-zinc-800 text-white shadow-sm"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                    title="Mode Desktop (1440x900)"
+                  >
+                    <Monitor className="w-3.5 h-3.5" />
+                    <span>Desktop</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDevice("mobile")}
+                    className={`px-2.5 py-1 rounded-md font-medium transition flex items-center gap-1.5 ${
+                      device === "mobile"
+                        ? "bg-zinc-800 text-white shadow-sm"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                    title="Mode Mobile (iPhone 390x844)"
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>Mobile</span>
+                  </button>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                {/* Scope / Cakupan */}
+                <div className="flex items-center bg-[#0d0f17] border border-zinc-800 rounded-lg p-0.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setCrawlMode("single")}
+                    className={`px-2.5 py-1 rounded-md font-medium transition ${
+                      crawlMode === "single"
+                        ? "bg-zinc-800 text-white shadow-sm"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    1 Halaman
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCrawlMode("multi")}
+                    className={`px-2.5 py-1 rounded-md font-medium transition flex items-center gap-1.5 ${
+                      crawlMode === "multi"
+                        ? "bg-zinc-800 text-white shadow-sm"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    <Compass className="w-3.5 h-3.5" />
+                    <span>Crawler</span>
+                  </button>
+                </div>
+
+                {/* Crawler limit dropdown */}
+                {crawlMode === "multi" && (
+                  <div className="flex items-center bg-[#0d0f17] border border-zinc-800 rounded-lg px-2 py-1 text-xs">
+                    <span className="text-zinc-500 mr-1.5 font-mono text-[11px]">Batas:</span>
+                    <select
+                      value={maxPages}
+                      onChange={(e) => setMaxPages(Number(e.target.value))}
+                      className="bg-transparent text-zinc-200 focus:outline-none font-mono text-xs cursor-pointer"
+                    >
+                      <option value={3} className="bg-zinc-900">3 Hal</option>
+                      <option value={5} className="bg-zinc-900">5 Hal</option>
+                      <option value={10} className="bg-zinc-900">10 Hal</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Auth / Credential toggle */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-[11px] text-zinc-500 hidden md:inline">Otentikasi:</span>
+                <div className="flex items-center bg-[#0d0f17] border border-zinc-800 rounded-lg p-0.5 text-xs">
                   <button
                     type="button"
                     onClick={() => setAuthMode("none")}
-                    className={`px-2.5 py-1 rounded text-xs transition font-mono ${
+                    className={`px-2 py-1 rounded transition text-xs font-mono ${
                       authMode === "none"
-                        ? "bg-zinc-800 text-zinc-100 border border-zinc-700"
-                        : "text-zinc-400 hover:text-zinc-200 border border-transparent"
+                        ? "bg-zinc-800 text-zinc-100"
+                        : "text-zinc-400 hover:text-zinc-200"
                     }`}
                   >
-                    Public
+                    Publik
                   </button>
                   <button
                     type="button"
                     onClick={() => setAuthMode("cookies")}
-                    className={`px-2.5 py-1 rounded text-xs transition font-mono flex items-center gap-1 ${
+                    className={`px-2 py-1 rounded transition text-xs font-mono flex items-center gap-1 ${
                       authMode === "cookies"
-                        ? "bg-zinc-800 text-zinc-100 border border-zinc-700"
-                        : "text-zinc-400 hover:text-zinc-200 border border-transparent"
+                        ? "bg-zinc-800 text-zinc-100"
+                        : "text-zinc-400 hover:text-zinc-200"
                     }`}
                   >
                     <Cookie className="w-3 h-3 text-amber-400" />
-                    Cookies
+                    <span>Cookies</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setAuthMode("headers")}
-                    className={`px-2.5 py-1 rounded text-xs transition font-mono flex items-center gap-1 ${
+                    className={`px-2 py-1 rounded transition text-xs font-mono flex items-center gap-1 ${
                       authMode === "headers"
-                        ? "bg-zinc-800 text-zinc-100 border border-zinc-700"
-                        : "text-zinc-400 hover:text-zinc-200 border border-transparent"
+                        ? "bg-zinc-800 text-zinc-100"
+                        : "text-zinc-400 hover:text-zinc-200"
                     }`}
                   >
                     <Key className="w-3 h-3 text-sky-400" />
-                    Headers / Token
+                    <span>Token</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setAuthMode("loginFlow")}
-                    className={`px-2.5 py-1 rounded text-xs transition font-mono flex items-center gap-1 ${
+                    className={`px-2 py-1 rounded transition text-xs font-mono flex items-center gap-1 ${
                       authMode === "loginFlow"
-                        ? "bg-zinc-800 text-zinc-100 border border-zinc-700"
-                        : "text-zinc-400 hover:text-zinc-200 border border-transparent"
+                        ? "bg-zinc-800 text-zinc-100"
+                        : "text-zinc-400 hover:text-zinc-200"
                     }`}
                   >
                     <Layers className="w-3 h-3 text-purple-400" />
-                    Auto-Login Form
+                    <span>Login Form</span>
                   </button>
                 </div>
               </div>
+            </div>
 
-              {/* Conditional Auth Inputs */}
-              {authMode === "cookies" && (
-                <div className="pt-2">
+            {/* Conditional Auth Form Drawer (only shown when not public) */}
+            {authMode !== "none" && (
+              <div className="p-3 sm:px-4 bg-[#0a0c13] border-t border-zinc-800/80 flex flex-col gap-2">
+                <div className="text-[11px] text-zinc-400 font-medium flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-sky-400" />
+                  <span>
+                    {authMode === "cookies" && "Pengaturan Custom Cookie"}
+                    {authMode === "headers" && "Pengaturan Custom HTTP Headers / Bearer Token"}
+                    {authMode === "loginFlow" && "Pengaturan Otomasi Form Login"}
+                  </span>
+                </div>
+
+                {authMode === "cookies" && (
                   <textarea
                     rows={2}
                     placeholder="session_id=abcd1234ef; token=xyz..."
@@ -813,11 +859,9 @@ ${result.diagnostics
                     onChange={(e) => setRawCookies(e.target.value)}
                     className="w-full bg-[#0d0f17] border border-zinc-800 rounded-md p-2.5 text-zinc-200 font-mono text-xs focus:outline-none focus:border-zinc-600"
                   />
-                </div>
-              )}
+                )}
 
-              {authMode === "headers" && (
-                <div className="pt-2">
+                {authMode === "headers" && (
                   <textarea
                     rows={3}
                     placeholder='{"Authorization": "Bearer ...", "X-Custom-Auth": "..."}'
@@ -825,82 +869,107 @@ ${result.diagnostics
                     onChange={(e) => setRawHeaders(e.target.value)}
                     className="w-full bg-[#0d0f17] border border-zinc-800 rounded-md p-2.5 text-zinc-200 font-mono text-xs focus:outline-none focus:border-zinc-600"
                   />
-                </div>
-              )}
+                )}
 
-              {authMode === "loginFlow" && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 text-xs">
-                  <input
-                    type="text"
-                    placeholder="Login page URL"
-                    value={loginConfig.loginUrl}
-                    onChange={(e) => setLoginConfig({ ...loginConfig, loginUrl: e.target.value })}
-                    className="bg-[#0d0f17] border border-zinc-800 rounded-md p-2 text-zinc-200 font-mono text-xs focus:outline-none focus:border-zinc-600"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Username / Email"
-                    value={loginConfig.username}
-                    onChange={(e) => setLoginConfig({ ...loginConfig, username: e.target.value })}
-                    className="bg-[#0d0f17] border border-zinc-800 rounded-md p-2 text-zinc-200 font-mono text-xs focus:outline-none focus:border-zinc-600"
-                  />
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    value={loginConfig.password}
-                    onChange={(e) => setLoginConfig({ ...loginConfig, password: e.target.value })}
-                    className="bg-[#0d0f17] border border-zinc-800 rounded-md p-2 text-zinc-200 font-mono text-xs focus:outline-none focus:border-zinc-600"
-                  />
-                </div>
-              )}
-
-              {/* Quick Preset Chips */}
-              <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-                <span className="text-[11px] text-zinc-400 font-medium">Contoh URL Pengujian:</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUrl("https://httpbin.org/status/500");
-                    setAuthMode("none");
-                    setCrawlMode("single");
-                  }}
-                  className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-mono text-[11px] transition inline-flex items-center gap-1.5"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
-                  <span>Contoh Error 500 (httpbin)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUrl("https://httpbin.org/status/401");
-                    setAuthMode("none");
-                    setCrawlMode("single");
-                  }}
-                  className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-mono text-[11px] transition inline-flex items-center gap-1.5"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-                  <span>Contoh Error 401 (httpbin)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUrl("https://jsonplaceholder.typicode.com");
-                    setAuthMode("none");
-                    setCrawlMode("multi");
-                    setMaxPages(3);
-                  }}
-                  className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-mono text-[11px] transition inline-flex items-center gap-1.5"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
-                  <span>Contoh Crawler (jsonplaceholder)</span>
-                </button>
-                <span className="text-[10px] text-zinc-500 italic hidden lg:inline">
-                  (Target live aman untuk pengujian & simulasi)
-                </span>
+                {authMode === "loginFlow" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                    <input
+                      type="text"
+                      placeholder="Login page URL"
+                      value={loginConfig.loginUrl}
+                      onChange={(e) => setLoginConfig({ ...loginConfig, loginUrl: e.target.value })}
+                      className="bg-[#0d0f17] border border-zinc-800 rounded-md p-2 text-zinc-200 font-mono text-xs focus:outline-none focus:border-zinc-600"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Username / Email"
+                      value={loginConfig.username}
+                      onChange={(e) => setLoginConfig({ ...loginConfig, username: e.target.value })}
+                      className="bg-[#0d0f17] border border-zinc-800 rounded-md p-2 text-zinc-200 font-mono text-xs focus:outline-none focus:border-zinc-600"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Password"
+                      value={loginConfig.password}
+                      onChange={(e) => setLoginConfig({ ...loginConfig, password: e.target.value })}
+                      className="bg-[#0d0f17] border border-zinc-800 rounded-md p-2 text-zinc-200 font-mono text-xs focus:outline-none focus:border-zinc-600"
+                    />
+                  </div>
+                )}
               </div>
+            )}
+
+            {/* Quick Preset Chips */}
+            <div className="p-3 sm:px-4 bg-[#0a0c13] border-t border-zinc-800/60 flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-[11px] text-zinc-400 font-medium">Contoh Live Cepat:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setUrl("https://httpbin.org/status/500");
+                  setAuthMode("none");
+                  setCrawlMode("single");
+                }}
+                className="px-2.5 py-1 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-mono text-[11px] transition inline-flex items-center gap-1.5"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                <span>Error 500 (httpbin)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setUrl("https://httpbin.org/status/401");
+                  setAuthMode("none");
+                  setCrawlMode("single");
+                }}
+                className="px-2.5 py-1 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-mono text-[11px] transition inline-flex items-center gap-1.5"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                <span>Error 401 (httpbin)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setUrl("https://jsonplaceholder.typicode.com");
+                  setAuthMode("none");
+                  setCrawlMode("multi");
+                  setMaxPages(3);
+                }}
+                className="px-2.5 py-1 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-mono text-[11px] transition inline-flex items-center gap-1.5"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                <span>Crawler Multi-Page</span>
+              </button>
+              <span className="text-[10px] text-zinc-500 italic hidden sm:inline">
+                (Klik untuk simulasi instan)
+              </span>
             </div>
           </form>
         </section>
+
+        {/* PWA Mobile Install Banner */}
+        {installPrompt && !isStandalone && (
+          <div className="bg-gradient-to-r from-sky-950/60 to-emerald-950/60 border border-sky-800/60 rounded-xl p-3 sm:p-4 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-700 flex items-center justify-center shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/icons/icon-192.png" alt="InspectLog" className="w-6 h-6 rounded" />
+              </div>
+              <div>
+                <div className="font-semibold text-zinc-100 flex items-center gap-1.5">
+                  <span>Pasang Aplikasi InspectLog</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-sky-900/60 text-sky-300 border border-sky-800">PWA</span>
+                </div>
+                <div className="text-[11px] text-zinc-400">Jalankan cepat di layar utama HP Anda tanpa buka browser berulang kali.</div>
+              </div>
+            </div>
+            <button
+              onClick={handleInstallApp}
+              className="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold px-3.5 py-1.5 rounded-lg text-xs transition shrink-0 active:scale-95 shadow-sm"
+            >
+              Pasang App
+            </button>
+          </div>
+        )}
 
         {/* Error Alert Box */}
         {errorMsg && (
@@ -2104,17 +2173,17 @@ ${result.diagnostics
               <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
                 <div>
                   <h3 className="font-semibold text-sm text-zinc-100 font-mono">
-                    {authTab === "login" ? "Sign in to InspectLog" : "Create Account"}
+                    {authTab === "login" ? "Masuk ke InspectLog" : "Buat Akun Baru"}
                   </h3>
-                  <p className="text-[11px] text-zinc-500 mt-0.5">
+                  <p className="text-[11px] text-zinc-400 mt-0.5">
                     {authTab === "login"
-                      ? "Access persistent inspection history and alert monitors."
-                      : "Store debug reports and configure scheduled probes."}
+                      ? "Akses riwayat inspeksi permanen & probe monitoring otomatis."
+                      : "Simpan riwayat debug dan konfigurasi alert Telegram/Discord."}
                   </p>
                 </div>
                 <button
                   onClick={() => setShowAuthModal(false)}
-                  className="p-1 hover:bg-zinc-800 rounded text-zinc-400 hover:text-white"
+                  className="p-1 hover:bg-zinc-800 rounded-md text-zinc-400 hover:text-white transition"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2123,7 +2192,7 @@ ${result.diagnostics
               {/* 1-Click Google Sign-in Button */}
               <a
                 href="/api/auth/google"
-                className="w-full bg-white hover:bg-zinc-100 text-zinc-900 font-medium py-2 px-3 rounded-md text-xs transition flex items-center justify-center gap-2.5 border border-zinc-300 shadow-sm"
+                className="w-full bg-[#11131c] hover:bg-[#181b28] text-zinc-200 hover:text-white font-medium py-2.5 px-3 rounded-lg text-xs transition flex items-center justify-center gap-2.5 border border-zinc-800 hover:border-zinc-700 shadow-sm active:scale-95"
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                   <path
@@ -2143,42 +2212,42 @@ ${result.diagnostics
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                   />
                 </svg>
-                <span>Continue with Google</span>
+                <span>Lanjutkan dengan Google</span>
               </a>
 
               {/* Divider */}
               <div className="relative flex items-center justify-center">
                 <div className="border-t border-zinc-800 w-full"></div>
                 <span className="bg-[#0c0e14] px-2 text-[10px] text-zinc-500 uppercase tracking-wider font-mono">
-                  or email
+                  atau email
                 </span>
                 <div className="border-t border-zinc-800 w-full"></div>
               </div>
 
               {/* Tab Selector */}
-              <div className="flex bg-[#090a0f] p-0.5 rounded-md border border-zinc-800 text-xs font-mono">
+              <div className="flex bg-[#090a0f] p-0.5 rounded-lg border border-zinc-800 text-xs font-mono">
                 <button
                   type="button"
                   onClick={() => setAuthTab("login")}
-                  className={`flex-1 py-1 rounded transition ${
-                    authTab === "login" ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
+                  className={`flex-1 py-1.5 rounded-md transition font-medium ${
+                    authTab === "login" ? "bg-zinc-800 text-zinc-100 shadow-sm" : "text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
-                  Sign In
+                  Masuk
                 </button>
                 <button
                   type="button"
                   onClick={() => setAuthTab("register")}
-                  className={`flex-1 py-1 rounded transition ${
-                    authTab === "register" ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"
+                  className={`flex-1 py-1.5 rounded-md transition font-medium ${
+                    authTab === "register" ? "bg-zinc-800 text-zinc-100 shadow-sm" : "text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
-                  Register
+                  Daftar Akun
                 </button>
               </div>
 
               {authError && (
-                <div className="p-2.5 bg-rose-950/40 border border-rose-900/60 rounded text-xs text-rose-300 font-mono">
+                <div className="p-2.5 bg-rose-950/40 border border-rose-900/60 rounded-lg text-xs text-rose-300 font-mono">
                   {authError}
                 </div>
               )}
@@ -2186,56 +2255,56 @@ ${result.diagnostics
               <form onSubmit={handleAuthSubmit} className="space-y-3 text-xs">
                 {authTab === "register" && (
                   <div>
-                    <label className="text-zinc-400 block mb-1">Full Name</label>
+                    <label className="text-zinc-400 block mb-1">Nama Lengkap</label>
                     <input
                       type="text"
                       required
-                      placeholder="Irul Dev"
+                      placeholder="Irul Developer"
                       value={authName}
                       onChange={(e) => setAuthName(e.target.value)}
-                      className="w-full bg-[#090a0f] border border-zinc-800 rounded-md p-2 text-zinc-200 focus:outline-none focus:border-zinc-600"
+                      className="w-full bg-[#090a0f] border border-zinc-800 focus:border-emerald-500/80 rounded-lg p-2.5 text-zinc-200 focus:outline-none transition"
                     />
                   </div>
                 )}
 
                 <div>
-                  <label className="text-zinc-400 block mb-1">Email</label>
+                  <label className="text-zinc-400 block mb-1">Alamat Email</label>
                   <input
                     type="email"
                     required
-                    placeholder="dev@example.com"
+                    placeholder="kamu@perusahaan.com"
                     value={authEmail}
                     onChange={(e) => setAuthEmail(e.target.value)}
-                    className="w-full bg-[#090a0f] border border-zinc-800 rounded-md p-2 text-zinc-200 focus:outline-none focus:border-zinc-600 font-mono"
+                    className="w-full bg-[#090a0f] border border-zinc-800 focus:border-emerald-500/80 rounded-lg p-2.5 text-zinc-200 focus:outline-none font-mono transition"
                   />
                 </div>
 
                 <div>
-                  <label className="text-zinc-400 block mb-1">Password</label>
+                  <label className="text-zinc-400 block mb-1">Kata Sandi</label>
                   <input
                     type="password"
                     required
                     placeholder="••••••••"
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
-                    className="w-full bg-[#090a0f] border border-zinc-800 rounded-md p-2 text-zinc-200 focus:outline-none focus:border-zinc-600 font-mono"
+                    className="w-full bg-[#090a0f] border border-zinc-800 focus:border-emerald-500/80 rounded-lg p-2.5 text-zinc-200 focus:outline-none font-mono transition"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={authSubmitting}
-                  className="w-full bg-zinc-100 hover:bg-white text-zinc-950 font-medium py-2 rounded-md text-xs transition border border-zinc-200 mt-1 flex items-center justify-center gap-1.5"
+                  className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold py-2.5 rounded-lg text-xs transition shadow-sm mt-2 flex items-center justify-center gap-1.5 disabled:opacity-50 active:scale-95"
                 >
                   {authSubmitting ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Authenticating...</span>
+                      <span>Memproses...</span>
                     </>
                   ) : authTab === "login" ? (
-                    "Sign In"
+                    "Masuk ke Akun"
                   ) : (
-                    "Create Account"
+                    "Buat Akun Sekarang"
                   )}
                 </button>
               </form>
@@ -2243,6 +2312,66 @@ ${result.diagnostics
           </div>
         )}
       </div>
+
+      {/* Mobile Ergonomic Bottom Navigation Bar (PWA Experience) */}
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#090a0f]/95 backdrop-blur-md border-t border-zinc-800/80 px-4 py-2 flex items-center justify-around text-[10px] safe-area-pb">
+        <button
+          onClick={() => {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          className="flex flex-col items-center gap-1 text-zinc-300 hover:text-white"
+        >
+          <Search className="w-4 h-4 text-emerald-400" />
+          <span>Periksa</span>
+        </button>
+
+        <button
+          onClick={() => {
+            fetchHistory();
+            setShowHistory(true);
+          }}
+          className="flex flex-col items-center gap-1 text-zinc-400 hover:text-white relative"
+        >
+          <History className="w-4 h-4" />
+          <span>Riwayat</span>
+          {historyList.length > 0 && (
+            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-zinc-800 border border-zinc-700 text-[8px] font-mono flex items-center justify-center text-zinc-300">
+              {historyList.length}
+            </span>
+          )}
+        </button>
+
+        <Link
+          href="/monitoring"
+          className="flex flex-col items-center gap-1 text-zinc-400 hover:text-white relative"
+        >
+          <Bell className="w-4 h-4 text-amber-400" />
+          <span>Monitor</span>
+          <span className="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+        </Link>
+
+        {currentUser ? (
+          <button
+            onClick={handleLogout}
+            className="flex flex-col items-center gap-1 text-zinc-400 hover:text-rose-400"
+            title="Keluar akun"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="truncate max-w-[50px]">{currentUser.name.split(" ")[0]}</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => {
+              setAuthTab("login");
+              setShowAuthModal(true);
+            }}
+            className="flex flex-col items-center gap-1 text-zinc-400 hover:text-white"
+          >
+            <User className="w-4 h-4" />
+            <span>Masuk</span>
+          </button>
+        )}
+      </nav>
     </main>
   );
 }

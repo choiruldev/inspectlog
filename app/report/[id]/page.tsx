@@ -290,7 +290,7 @@ ${scan.diagnostics
 
             <button
               onClick={copyMarkdownBugReport}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-zinc-100 hover:bg-white text-zinc-950 transition border border-zinc-200 shadow-sm"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium bg-emerald-500 hover:bg-emerald-400 text-zinc-950 transition shadow-sm active:scale-95"
             >
               {copiedMarkdown ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copiedMarkdown ? "Copied" : "Copy Markdown"}</span>
