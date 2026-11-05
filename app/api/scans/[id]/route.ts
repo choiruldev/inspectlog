@@ -7,6 +7,9 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    if (!id || !/^[a-zA-Z0-9_-]{5,80}$/.test(id)) {
+      return NextResponse.json({ success: false, error: "ID format tidak valid." }, { status: 400 });
+    }
     const scan = getScan(id);
 
     if (!scan) {
@@ -31,6 +34,9 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    if (!id || !/^[a-zA-Z0-9_-]{5,80}$/.test(id)) {
+      return NextResponse.json({ success: false, error: "ID format tidak valid." }, { status: 400 });
+    }
     const deleted = deleteScan(id);
 
     if (!deleted) {

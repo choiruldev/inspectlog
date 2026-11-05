@@ -25,8 +25,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Sandbox Simulator Webhook
+    // 3. Sandbox Simulator Webhook (Allowed in development or when ENABLE_PAYMENT_SIMULATOR is set)
     if (body.invoice && body.action === "simulate_paid") {
+      if (process.env.NODE_ENV === "production" && process.env.ENABLE_PAYMENT_SIMULATOR !== "true") {
+        return NextResponse.json(
+          { success: false, error: "Simulasi pembayaran sandbox dinonaktifkan di lingkungan produksi." },
+          { status: 403 }
+        );
+      }
       markTransactionPaid(body.invoice);
       return NextResponse.json({ success: true, message: "Sandbox simulated payment confirmed!" });
     }

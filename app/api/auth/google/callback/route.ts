@@ -55,8 +55,8 @@ export async function GET(req: NextRequest) {
           }
         }
       }
-    } else if (demo) {
-      // Demo simulated user
+    } else if (demo && process.env.NODE_ENV !== "production") {
+      // Demo simulated user allowed ONLY in local development
       googleUser = {
         googleId: "google_dev_demo_9921",
         email: "irul.developer@gmail.com",
@@ -65,12 +65,17 @@ export async function GET(req: NextRequest) {
       };
     }
 
+    if (!googleUser) {
+      return NextResponse.redirect(`${baseUrl}?auth_error=google_unauthorized`);
+    }
+
     const user = findOrCreateGoogleUser(googleUser);
     const sessionToken = createSession(user.id);
 
     const redirectRes = NextResponse.redirect(baseUrl);
     redirectRes.cookies.set("inspect_session", sessionToken, {
       httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
       path: "/",
       maxAge: 30 * 24 * 60 * 60,
       sameSite: "lax",

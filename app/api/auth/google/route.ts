@@ -19,6 +19,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(googleAuthUrl.toString());
   }
 
-  // Demo Google Login mode if client credentials not yet configured
-  return NextResponse.redirect(`${protocol}://${host}/api/auth/google/callback?demo=true`);
+  // Demo Google Login mode allowed ONLY in development
+  if (process.env.NODE_ENV !== "production") {
+    return NextResponse.redirect(`${protocol}://${host}/api/auth/google/callback?demo=true`);
+  }
+
+  return NextResponse.redirect(`${protocol}://${host}?auth_error=google_not_configured`);
 }

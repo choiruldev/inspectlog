@@ -1,4 +1,5 @@
 // Alert Dispatcher for Telegram Bot & Webhooks (Discord, Slack, Custom)
+import { validateTargetUrl } from "./security";
 
 interface AlertPayload {
   url: string;
@@ -82,6 +83,11 @@ export async function sendWebhookAlert(
   payload: AlertPayload
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const urlCheck = await validateTargetUrl(webhookUrl);
+    if (!urlCheck.valid) {
+      return { success: false, error: `URL Webhook ditolak: ${urlCheck.reason}` };
+    }
+
     const isDiscord = webhookUrl.includes("discord.com");
     const isSlack = webhookUrl.includes("slack.com");
 

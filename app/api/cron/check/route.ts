@@ -5,6 +5,21 @@ export const maxDuration = 120;
 
 export async function GET(req: NextRequest) {
   try {
+    // Secret protection for scheduled cron jobs in production
+    const cronSecret = process.env.CRON_SECRET;
+    if (cronSecret) {
+      const authHeader = req.headers.get("authorization");
+      const querySecret = req.nextUrl.searchParams.get("secret");
+      const isAuthorized = authHeader === `Bearer ${cronSecret}` || querySecret === cronSecret;
+
+      if (!isAuthorized) {
+        return NextResponse.json(
+          { success: false, error: "Unauthorized cron execution. Provide CRON_SECRET header or query parameter." },
+          { status: 401 }
+        );
+      }
+    }
+
     const monitors = listMonitors().filter((m) => m.status === "active");
     const host = req.headers.get("host") || "localhost:3000";
     const protocol = host.includes("localhost") ? "http" : "https";

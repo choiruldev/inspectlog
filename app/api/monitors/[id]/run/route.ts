@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMonitor, updateMonitorCheck } from "@/lib/db";
 import { sendTelegramAlert, sendWebhookAlert } from "@/lib/alerts";
+import { checkRateLimit } from "@/lib/rate-limiter";
 
 export const maxDuration = 60;
 
@@ -9,7 +10,21 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const forwarded = req.headers.get("x-forwarded-for");
+    const clientIp = forwarded ? forwarded.split(",")[0].trim() : "127.0.0.1";
+    const rateCheck = checkRateLimit(`monitor_run:${clientIp}`, 15, 10 * 60 * 1000);
+
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Batas eksekusi pemindaian monitor tercapai. Harap tunggu beberapa saat." },
+        { status: 429 }
+      );
+    }
+
     const { id } = await params;
+    if (!id || !/^[a-zA-Z0-9_-]{5,80}$/.test(id)) {
+      return NextResponse.json({ success: false, error: "ID format tidak valid." }, { status: 400 });
+    }
     const monitor = getMonitor(id);
 
     if (!monitor) {

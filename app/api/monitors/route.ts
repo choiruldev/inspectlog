@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listMonitors, createMonitor } from "@/lib/db";
+import { validateTargetUrl } from "@/lib/security";
 
 export async function GET() {
   try {
@@ -25,10 +26,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // SSRF validation for target website URL
+    const urlCheck = await validateTargetUrl(url);
+    if (!urlCheck.valid) {
+      return NextResponse.json(
+        { success: false, error: urlCheck.reason || "URL target tidak aman (SSRF Protection)." },
+        { status: 400 }
+      );
+    }
+
+    // If webhook, validate destination against SSRF as well
+    if (alertType === "webhook") {
+      const webhookCheck = await validateTargetUrl(alertDestination);
+      if (!webhookCheck.valid) {
+        return NextResponse.json(
+          { success: false, error: `URL Webhook tidak aman: ${webhookCheck.reason}` },
+          { status: 400 }
+        );
+      }
+    }
+
     const created = createMonitor({
-      name,
-      url: url.startsWith("http") ? url : `https://${url}`,
-      intervalMinutes: Number(intervalMinutes) || 60,
+      name: name.slice(0, 120),
+      url: urlCheck.sanitizedUrl!,
+      intervalMinutes: Math.min(Math.max(Number(intervalMinutes) || 60, 15), 10080),
       alertType: alertType || "telegram",
       alertDestination,
     });

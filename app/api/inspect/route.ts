@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { chromium, Browser, BrowserContext, Page } from "playwright";
 import { saveScan } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limiter";
+import { validateTargetUrl, isSafeTargetUrlSync } from "@/lib/security";
 import crypto from "node:crypto";
 
 export const maxDuration = 120; // Allow up to 120s for multi-page crawl
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
   try {
     const forwarded = req.headers.get("x-forwarded-for");
     const clientIp = forwarded ? forwarded.split(",")[0].trim() : "127.0.0.1";
-    const rateCheck = checkRateLimit(clientIp, 25, 3600000); // 25 scans per hour per IP
+    const rateCheck = checkRateLimit(`inspect:${clientIp}`, 25, 3600000); // 25 scans per hour per IP
 
     if (!rateCheck.allowed) {
       return NextResponse.json(
@@ -93,10 +94,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // SSRF & Protocol Safety Check
+    const urlValidation = await validateTargetUrl(url);
+    if (!urlValidation.valid) {
+      return NextResponse.json(
+        { error: urlValidation.reason || "URL ditolak karena alasan keamanan (SSRF Protection)." },
+        { status: 400 }
+      );
+    }
+
+    const safeUrl = urlValidation.sanitizedUrl!;
     const scanId = `scan_${Date.now().toString(36)}_${crypto.randomBytes(3).toString("hex")}`;
-    const targetUrlObj = new URL(url.startsWith("http") ? url : `https://${url}`);
+    const targetUrlObj = new URL(safeUrl);
     const originHostname = targetUrlObj.hostname;
     const originBase = `${targetUrlObj.protocol}//${targetUrlObj.host}`;
+
+    // Clamp parameters against resource exhaustion
+    const safeWaitDuration = Math.min(Math.max(Number(waitDuration) || 3000, 1000), 10000);
+    const safeMaxPages = Math.min(Math.max(Number(maxPages) || 3, 1), 10);
 
     // Launch Playwright using installed Google Chrome or Chromium
     try {
@@ -172,6 +187,17 @@ export async function POST(req: NextRequest) {
     }
 
     const page: Page = await context.newPage();
+
+    // Runtime Route Blocker (SSRF Defense-in-depth: blocks redirects/sub-requests to internal networks)
+    await page.route("**/*", async (route) => {
+      const subUrl = route.request().url();
+      const check = isSafeTargetUrlSync(subUrl);
+      if (!check.valid) {
+        await route.abort("blockedbyclient");
+        return;
+      }
+      await route.continue();
+    });
 
     // Data containers
     let currentNavigatingUrl = targetUrlObj.href;
@@ -386,7 +412,7 @@ export async function POST(req: NextRequest) {
     const queue: string[] = [targetUrlObj.href];
     const visited = new Set<string>();
 
-    const pageLimit = crawlMode === "multi" ? Math.min(Math.max(Number(maxPages) || 3, 2), 10) : 1;
+    const pageLimit = crawlMode === "multi" ? safeMaxPages : 1;
     let screenshotBase64: string | null = null;
 
     while (queue.length > 0 && visited.size < pageLimit) {
@@ -419,7 +445,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Wait brief duration for AJAX
-      const waitTime = Math.min(Math.max(Number(waitDuration) || 2500, 1000), 10000);
+      const waitTime = safeWaitDuration;
       await page.waitForTimeout(crawlMode === "multi" ? 2000 : waitTime);
 
       // Capture screenshot of the first page
