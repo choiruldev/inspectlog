@@ -137,7 +137,7 @@ export default function Home() {
   const [waitDuration, setWaitDuration] = useState(3000);
   const [authMode, setAuthMode] = useState<"none" | "cookies" | "headers" | "loginFlow">("none");
   const [rawCookies, setRawCookies] = useState("");
-  const [rawHeaders, setRawHeaders] = useState('{\n  "Authorization": "Bearer YOUR_TOKEN_HERE"\n}');
+  const [rawHeaders, setRawHeaders] = useState('{\n  "Authorization": "Bearer eyJhbGciOiJIUzI1Ni... (Contoh token otentikasi JWT)",\n  "Content-Type": "application/json"\n}');
   const [loginConfig, setLoginConfig] = useState({
     loginUrl: "",
     usernameSelector: "input[type='email'], input[name='username']",
@@ -803,8 +803,8 @@ ${result.diagnostics
               )}
 
               {/* Quick Preset Chips */}
-              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-zinc-500">
-                <span className="font-mono">presets:</span>
+              <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+                <span className="text-[11px] text-zinc-400 font-medium">Contoh URL Pengujian:</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -812,9 +812,10 @@ ${result.diagnostics
                     setAuthMode("none");
                     setCrawlMode("single");
                   }}
-                  className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 font-mono transition"
+                  className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-mono text-[11px] transition inline-flex items-center gap-1.5"
                 >
-                  httpbin 500
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                  <span>Contoh Error 500 (httpbin)</span>
                 </button>
                 <button
                   type="button"
@@ -823,9 +824,10 @@ ${result.diagnostics
                     setAuthMode("none");
                     setCrawlMode("single");
                   }}
-                  className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 font-mono transition"
+                  className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-mono text-[11px] transition inline-flex items-center gap-1.5"
                 >
-                  httpbin 401
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                  <span>Contoh Error 401 (httpbin)</span>
                 </button>
                 <button
                   type="button"
@@ -835,10 +837,14 @@ ${result.diagnostics
                     setCrawlMode("multi");
                     setMaxPages(3);
                   }}
-                  className="px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 font-mono transition"
+                  className="px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-mono text-[11px] transition inline-flex items-center gap-1.5"
                 >
-                  typicode crawler
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                  <span>Contoh Crawler (jsonplaceholder)</span>
                 </button>
+                <span className="text-[10px] text-zinc-500 italic hidden lg:inline">
+                  (Target live aman untuk pengujian & simulasi)
+                </span>
               </div>
             </div>
           </form>
@@ -855,9 +861,146 @@ ${result.diagnostics
           </div>
         )}
 
+        {/* Showcase / Panduan Contoh Pengujian (When no inspection active) */}
+        {!result && !loading && (
+          <section className="border border-zinc-800/80 bg-[#0c0e14] rounded-xl p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800/80 pb-3">
+              <div>
+                <h3 className="text-xs sm:text-sm font-semibold text-zinc-100 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-sky-400"></span>
+                  <span>Panduan & Contoh Skenario Uji Coba Langsung (Live Sandbox)</span>
+                </h3>
+                <p className="text-[11px] text-zinc-400 mt-0.5">
+                  InspectLog menganalisis lalu lintas HTTP riil. Klik salah satu contoh di bawah ini untuk melihat simulasi hasil inspeksi lengkap tanpa perlu mengetik URL.
+                </p>
+              </div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800 shrink-0 self-start sm:self-auto">
+                Status: Siap Uji Coba
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Card 1: 500 Server Error */}
+              <div className="bg-[#090a0f] border border-zinc-800 hover:border-zinc-700 rounded-lg p-3.5 flex flex-col justify-between space-y-3 transition">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-900/60 uppercase">
+                      HTTP 500 Internal Error
+                    </span>
+                    <span className="text-[10px] text-zinc-500 font-mono">httpbin.org</span>
+                  </div>
+                  <h4 className="text-xs font-semibold text-zinc-200">Simulasi Kerusakan Server</h4>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    Melihat bagaimana InspectLog mendeteksi error HTTP 500, membaca respons gagal dari server, dan memberikan diagnosa penyebab kerusakan.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUrl("https://httpbin.org/status/500");
+                    setAuthMode("none");
+                    setCrawlMode("single");
+                  }}
+                  className="w-full bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white border border-zinc-700/80 rounded py-1.5 text-xs font-medium transition flex items-center justify-center gap-1.5"
+                >
+                  <span>Pilih Contoh 500 Ini</span>
+                  <ArrowRight className="w-3 h-3 text-zinc-400" />
+                </button>
+              </div>
+
+              {/* Card 2: 401 Unauthorized */}
+              <div className="bg-[#090a0f] border border-zinc-800 hover:border-zinc-700 rounded-lg p-3.5 flex flex-col justify-between space-y-3 transition">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-900/60 uppercase">
+                      HTTP 401 Unauthorized
+                    </span>
+                    <span className="text-[10px] text-zinc-500 font-mono">httpbin.org</span>
+                  </div>
+                  <h4 className="text-xs font-semibold text-zinc-200">Simulasi Gagal Otentikasi</h4>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    Melihat deteksi endpoint terlindungi yang menolak akses karena ketiadaan token otentikasi atau session cookie yang sah.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUrl("https://httpbin.org/status/401");
+                    setAuthMode("none");
+                    setCrawlMode("single");
+                  }}
+                  className="w-full bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white border border-zinc-700/80 rounded py-1.5 text-xs font-medium transition flex items-center justify-center gap-1.5"
+                >
+                  <span>Pilih Contoh 401 Ini</span>
+                  <ArrowRight className="w-3 h-3 text-zinc-400" />
+                </button>
+              </div>
+
+              {/* Card 3: Multi-Page Crawler */}
+              <div className="bg-[#090a0f] border border-zinc-800 hover:border-zinc-700 rounded-lg p-3.5 flex flex-col justify-between space-y-3 transition">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-sky-950 text-sky-300 border border-sky-900/60 uppercase">
+                      Multi-Page Crawler
+                    </span>
+                    <span className="text-[10px] text-zinc-500 font-mono">jsonplaceholder</span>
+                  </div>
+                  <h4 className="text-xs font-semibold text-zinc-200">Simulasi Jelajah Sub-Halaman</h4>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    Menelusuri link halaman internal secara otomatis untuk memindai seluruh request backend, AJAX fetch, dan script error antar halaman.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUrl("https://jsonplaceholder.typicode.com");
+                    setAuthMode("none");
+                    setCrawlMode("multi");
+                    setMaxPages(3);
+                  }}
+                  className="w-full bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white border border-zinc-700/80 rounded py-1.5 text-xs font-medium transition flex items-center justify-center gap-1.5"
+                >
+                  <span>Pilih Contoh Crawler</span>
+                  <ArrowRight className="w-3 h-3 text-zinc-400" />
+                </button>
+              </div>
+            </div>
+
+            {/* Note on past history if available */}
+            {historyList.length > 0 && (
+              <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-xs text-zinc-400">
+                <span className="text-[11px]">
+                  💡 Tersedia <strong>{historyList.length} riwayat hasil inspeksi tersimpan</strong> dari sesi pengujian sebelumnya.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    fetchHistory();
+                    setShowHistory(true);
+                  }}
+                  className="text-zinc-300 hover:text-white underline text-[11px] font-medium"
+                >
+                  Buka Daftar Riwayat ({historyList.length}) →
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Results Deck */}
         {result && (
           <section className="space-y-4">
+            {/* Live Test Notice Banner if sample URL */}
+            {(result.meta.targetUrl.includes("httpbin.org") || result.meta.targetUrl.includes("jsonplaceholder")) && (
+              <div className="bg-[#0c0e14] border border-sky-900/50 rounded-lg px-3.5 py-2.5 text-xs flex items-center justify-between gap-3 text-sky-200">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                  <span className="text-[11px]">
+                    <strong>Target Contoh Pengujian Live:</strong> Hasil di bawah ini merupakan respon nyata dari server simulasi <code>{result.meta.targetUrl}</code>. Anda dapat menguji website atau API Anda sendiri kapan saja dengan mengganti URL di atas.
+                  </span>
+                </div>
+              </div>
+            )}
             {/* Horizontal Metric Strip (Anti-Slop: clean 1px border division, quiet semantic colors) */}
             <div className="border border-zinc-800/80 bg-[#0c0e14] rounded-lg divide-y sm:divide-y-0 sm:divide-x divide-zinc-800/80 grid grid-cols-2 sm:grid-cols-5 text-left">
               {/* Score */}
@@ -1587,8 +1730,8 @@ ${result.diagnostics
                             : JSON.stringify(selectedReq.requestPayload, null, 2)}
                         </pre>
                       ) : (
-                        <span className="text-zinc-600 font-sans">
-                          (No payload body / Standard GET request)
+                        <span className="text-zinc-500 font-sans text-xs">
+                          ℹ️ Tidak ada body payload pada request ini (metode HTTP GET mengirimkan parameter langsung via URL).
                         </span>
                       )}
                     </div>
@@ -1625,8 +1768,8 @@ ${result.diagnostics
                             : JSON.stringify(selectedReq.responseBody, null, 2)}
                         </pre>
                       ) : (
-                        <span className="text-zinc-600 font-sans">
-                          (Empty response body or binary content)
+                        <span className="text-zinc-500 font-sans text-xs">
+                          ℹ️ Respon server kosong (HTTP 204/304) atau berupa berkas streaming/biner (gambar/font).
                         </span>
                       )}
                     </div>
@@ -1658,7 +1801,9 @@ ${result.diagnostics
                           </tbody>
                         </table>
                       ) : (
-                        <span className="text-zinc-600 font-sans">(No query parameters in URL)</span>
+                        <span className="text-zinc-500 font-sans text-xs">
+                          ℹ️ URL endpoint ini tidak menyertakan query parameter tambahan (seperti ?sort=asc&page=1).
+                        </span>
                       )}
                     </div>
                   </div>

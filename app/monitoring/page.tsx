@@ -291,93 +291,127 @@ export default function MonitoringPage() {
             </button>
           </div>
         ) : (
-          <div className="border border-zinc-800/80 rounded-lg overflow-hidden bg-[#0c0e14]">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-mono">
-                <thead className="bg-[#0e1017] text-zinc-400 font-sans border-b border-zinc-800 text-[11px]">
-                  <tr>
-                    <th className="py-2.5 px-3 w-20">State</th>
-                    <th className="py-2.5 px-3">Probe Label</th>
-                    <th className="py-2.5 px-3">Target Endpoint URL</th>
-                    <th className="py-2.5 px-3 w-28">Interval</th>
-                    <th className="py-2.5 px-3 w-24">Channel</th>
-                    <th className="py-2.5 px-3 w-28">Last Health</th>
-                    <th className="py-2.5 px-3 text-right font-sans w-32">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800/60">
-                  {monitors.map((m) => (
-                    <tr key={m.id} className="hover:bg-zinc-900/40 transition">
-                      <td className="py-2.5 px-3 font-sans">
-                        <button
-                          onClick={() => handleToggleStatus(m.id, m.status)}
-                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium transition ${
-                            m.status === "active"
-                              ? "bg-emerald-950/60 text-emerald-300 border border-emerald-900/70"
-                              : "bg-zinc-900 text-zinc-500 border border-zinc-800"
-                          }`}
-                        >
-                          {m.status === "active" ? <Play className="w-2.5 h-2.5 fill-current" /> : <Pause className="w-2.5 h-2.5" />}
-                          {m.status.toUpperCase()}
-                        </button>
-                      </td>
+          <div className="space-y-3">
+            {/* Helpful notification if sample probe exists */}
+            {monitors.some((m) => m.name.toLowerCase().includes("contoh") || m.name.toLowerCase().includes("sandbox")) && (
+              <div className="bg-[#0c0e14] border border-amber-900/40 rounded-lg px-3.5 py-2.5 text-xs text-amber-200/90 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                  <span className="text-[11px]">
+                    <strong>Catatan Panduan:</strong> Monitor bertanda <code>[Contoh Simulasi]</code> disiapkan sebagai referensi format. Anda dapat klik <strong>Run</strong> untuk uji coba langsung, atau klik <strong>Tambah Monitor</strong> untuk memantau website produksi Anda sendiri.
+                  </span>
+                </div>
+              </div>
+            )}
 
-                      <td className="py-2.5 px-3 font-sans font-medium text-zinc-200">
-                        {m.name}
-                      </td>
-
-                      <td className="py-2.5 px-3 max-w-xs truncate text-zinc-300">
-                        <span title={m.url}>{m.url}</span>
-                      </td>
-
-                      <td className="py-2.5 px-3 text-zinc-400">
-                        Every {m.interval_minutes}m
-                      </td>
-
-                      <td className="py-2.5 px-3">
-                        <span className="bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-mono text-zinc-300">
-                          {m.alert_type}
-                        </span>
-                      </td>
-
-                      <td className="py-2.5 px-3">
-                        {m.last_health_score !== null ? (
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
-                              m.last_health_score >= 80
-                                ? "bg-emerald-950/60 text-emerald-300 border border-emerald-900/70"
-                                : "bg-rose-950/60 text-rose-300 border border-rose-900/70"
-                            }`}
-                          >
-                            {m.last_health_score}/100
-                          </span>
-                        ) : (
-                          <span className="text-zinc-600 font-sans text-[11px]">Pending</span>
-                        )}
-                      </td>
-
-                      <td className="py-2.5 px-3 text-right font-sans space-x-1.5">
-                        <button
-                          onClick={() => handleRunNow(m.id)}
-                          disabled={runningId === m.id}
-                          className="bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 text-zinc-300 px-2 py-0.5 rounded text-[11px] border border-zinc-800 transition inline-flex items-center gap-1"
-                        >
-                          <RefreshCw className={`w-3 h-3 ${runningId === m.id ? "animate-spin" : ""}`} />
-                          Run
-                        </button>
-
-                        <button
-                          onClick={() => handleDeleteMonitor(m.id)}
-                          className="bg-zinc-900 hover:bg-rose-950 text-zinc-500 hover:text-rose-400 p-1 rounded border border-zinc-800 transition"
-                          title="Delete probe"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </td>
+            <div className="border border-zinc-800/80 rounded-lg overflow-hidden bg-[#0c0e14]">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-[#0e1017] text-zinc-400 font-sans border-b border-zinc-800 text-[11px]">
+                    <tr>
+                      <th className="py-2.5 px-3 w-20">State</th>
+                      <th className="py-2.5 px-3">Probe Label</th>
+                      <th className="py-2.5 px-3">Target Endpoint URL</th>
+                      <th className="py-2.5 px-3 w-28">Interval</th>
+                      <th className="py-2.5 px-3 w-32">Channel</th>
+                      <th className="py-2.5 px-3 w-28">Last Health</th>
+                      <th className="py-2.5 px-3 text-right font-sans w-32">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/60">
+                    {monitors.map((m) => {
+                      const isSample = m.name.toLowerCase().includes("contoh") || m.name.toLowerCase().includes("sandbox");
+                      return (
+                        <tr key={m.id} className="hover:bg-zinc-900/40 transition">
+                          <td className="py-2.5 px-3 font-sans">
+                            <button
+                              onClick={() => handleToggleStatus(m.id, m.status)}
+                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium transition ${
+                                m.status === "active"
+                                  ? "bg-emerald-950/60 text-emerald-300 border border-emerald-900/70"
+                                  : "bg-zinc-900 text-zinc-500 border border-zinc-800"
+                              }`}
+                            >
+                              {m.status === "active" ? <Play className="w-2.5 h-2.5 fill-current" /> : <Pause className="w-2.5 h-2.5" />}
+                              {m.status.toUpperCase()}
+                            </button>
+                          </td>
+
+                          <td className="py-2.5 px-3 font-sans font-medium text-zinc-200">
+                            <div className="flex items-center gap-1.5">
+                              <span>{m.name}</span>
+                              {isSample && (
+                                <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-amber-950/50 text-amber-400 border border-amber-900/60 uppercase">
+                                  Contoh
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="py-2.5 px-3 max-w-xs truncate text-zinc-300">
+                            <span title={m.url}>{m.url}</span>
+                            {m.url.includes("httpbin.org") && (
+                              <span className="block text-[10px] text-zinc-500 font-sans">
+                                (Endpoint publik httpbin)
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="py-2.5 px-3 text-zinc-400">
+                            Every {m.interval_minutes}m
+                          </td>
+
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-1">
+                              <span className="bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded text-[10px] uppercase font-mono text-zinc-300">
+                                {m.alert_type}
+                              </span>
+                              {isSample && (
+                                <span className="text-[9px] text-zinc-500 font-sans">(Simulasi)</span>
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="py-2.5 px-3">
+                            {m.last_health_score !== null ? (
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
+                                  m.last_health_score >= 80
+                                    ? "bg-emerald-950/60 text-emerald-300 border border-emerald-900/70"
+                                    : "bg-rose-950/60 text-rose-300 border border-rose-900/70"
+                                }`}
+                              >
+                                {m.last_health_score}/100
+                              </span>
+                            ) : (
+                              <span className="text-zinc-500 font-sans text-[11px]">Siap Dipindai</span>
+                            )}
+                          </td>
+
+                          <td className="py-2.5 px-3 text-right font-sans space-x-1.5">
+                            <button
+                              onClick={() => handleRunNow(m.id)}
+                              disabled={runningId === m.id}
+                              className="bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 text-zinc-300 px-2 py-0.5 rounded text-[11px] border border-zinc-800 transition inline-flex items-center gap-1"
+                            >
+                              <RefreshCw className={`w-3 h-3 ${runningId === m.id ? "animate-spin" : ""}`} />
+                              Run
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteMonitor(m.id)}
+                              className="bg-zinc-900 hover:bg-rose-950 text-zinc-500 hover:text-rose-400 p-1 rounded border border-zinc-800 transition"
+                              title="Delete probe"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
