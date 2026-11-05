@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { getUserFromSession, UserRecord } from "./db";
 
-const SALT = "inspect_web_salt_2026_xyz";
+const SALT = process.env.PASSWORD_SALT || "inspect_web_salt_2026_xyz";
 
 export function hashPassword(password: string): string {
   return crypto.scryptSync(password, SALT, 64).toString("hex");
