@@ -202,7 +202,13 @@ export default function Home() {
   };
 
   // User Auth state
-  const [currentUser, setCurrentUser] = useState<{ id: string; email: string; name: string; role: "free" | "pro" } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{
+    id: string;
+    email: string;
+    name: string;
+    role: "free" | "pro";
+    avatar_url?: string | null;
+  } | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authTab, setAuthTab] = useState<"login" | "register">("login");
   const [authEmail, setAuthEmail] = useState("");
@@ -538,10 +544,18 @@ ${result.diagnostics
             </button>
 
             {currentUser ? (
-              <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-xs">
-                <span className="font-semibold text-white">{currentUser.name}</span>
+              <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 pl-1.5 pr-3 py-1 rounded-full text-xs shadow-sm">
+                {currentUser.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={currentUser.avatar_url} alt={currentUser.name} className="w-6 h-6 rounded-full object-cover" />
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-white text-[11px]">
+                    {currentUser.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="font-semibold text-white max-w-[120px] truncate">{currentUser.name}</span>
                 <span
-                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                  className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
                     currentUser.role === "pro"
                       ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
                       : "bg-slate-800 text-slate-400"
@@ -549,7 +563,7 @@ ${result.diagnostics
                 >
                   {currentUser.role}
                 </span>
-                <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 p-0.5 ml-1" title="Logout">
+                <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 p-0.5 ml-0.5" title="Logout">
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -559,9 +573,9 @@ ${result.diagnostics
                   setAuthTab("login");
                   setShowAuthModal(true);
                 }}
-                className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 px-3 py-2 rounded-lg text-xs font-medium transition"
+                className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-lg text-xs font-semibold transition shadow-md shadow-indigo-600/20"
               >
-                <User className="w-3.5 h-3.5 text-indigo-400" />
+                <User className="w-3.5 h-3.5" />
                 Masuk / Daftar
               </button>
             )}
@@ -1847,16 +1861,20 @@ ${result.diagnostics
             </div>
           </div>
         )}
-        {/* Modal: User Auth (Login & Register) */}
+        {/* Modal: User Auth (Login & Register with Google) */}
         {showAuthModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-6 shadow-2xl space-y-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5 relative">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <User className="w-5 h-5 text-indigo-400" />
+                <div>
                   <h3 className="font-bold text-base text-white">
-                    {authTab === "login" ? "Masuk ke InspectLog" : "Daftar Akun Baru"}
+                    {authTab === "login" ? "Selamat Datang Kembali" : "Buat Akun InspectLog"}
                   </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {authTab === "login"
+                      ? "Masuk untuk kelola monitor & riwayat scan Anda."
+                      : "Daftar gratis untuk simpan laporan debug permanen."}
+                  </p>
                 </div>
                 <button
                   onClick={() => setShowAuthModal(false)}
@@ -1866,35 +1884,70 @@ ${result.diagnostics
                 </button>
               </div>
 
+              {/* 1-Click Google Sign-in Button */}
+              <a
+                href="/api/auth/google"
+                className="w-full bg-white hover:bg-slate-100 text-slate-800 font-semibold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-3 border border-slate-200 shadow-sm"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                  />
+                </svg>
+                <span>Lanjutkan dengan Google</span>
+              </a>
+
+              {/* Divider */}
+              <div className="relative flex items-center justify-center">
+                <div className="border-t border-slate-800 w-full"></div>
+                <span className="bg-slate-900 px-3 text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
+                  atau gunakan email
+                </span>
+                <div className="border-t border-slate-800 w-full"></div>
+              </div>
+
               {/* Tabs */}
-              <div className="flex border-b border-slate-800 text-xs">
+              <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
                 <button
                   type="button"
                   onClick={() => setAuthTab("login")}
-                  className={`flex-1 py-2 font-medium border-b-2 transition ${
-                    authTab === "login" ? "border-indigo-500 text-indigo-400" : "border-transparent text-slate-400"
+                  className={`flex-1 py-1.5 rounded-lg font-medium transition ${
+                    authTab === "login" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
                   }`}
                 >
-                  Login
+                  Masuk (Login)
                 </button>
                 <button
                   type="button"
                   onClick={() => setAuthTab("register")}
-                  className={`flex-1 py-2 font-medium border-b-2 transition ${
-                    authTab === "register" ? "border-indigo-500 text-indigo-400" : "border-transparent text-slate-400"
+                  className={`flex-1 py-1.5 rounded-lg font-medium transition ${
+                    authTab === "register" ? "bg-indigo-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
                   }`}
                 >
-                  Register
+                  Daftar Akun
                 </button>
               </div>
 
               {authError && (
-                <div className="p-2.5 bg-red-950/60 border border-red-800 rounded-lg text-xs text-red-300">
+                <div className="p-3 bg-red-950/60 border border-red-800 rounded-xl text-xs text-red-300">
                   {authError}
                 </div>
               )}
 
-              <form onSubmit={handleAuthSubmit} className="space-y-3 text-xs">
+              <form onSubmit={handleAuthSubmit} className="space-y-3.5 text-xs">
                 {authTab === "register" && (
                   <div>
                     <label className="text-slate-300 block mb-1 font-medium">Nama Lengkap *</label>
@@ -1904,20 +1957,20 @@ ${result.diagnostics
                       placeholder="Irul Developer"
                       value={authName}
                       onChange={(e) => setAuthName(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
                 )}
 
                 <div>
-                  <label className="text-slate-300 block mb-1 font-medium">Email *</label>
+                  <label className="text-slate-300 block mb-1 font-medium">Alamat Email *</label>
                   <input
                     type="email"
                     required
-                    placeholder="nama@email.com"
+                    placeholder="nama@perusahaan.com"
                     value={authEmail}
                     onChange={(e) => setAuthEmail(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
 
@@ -1929,18 +1982,39 @@ ${result.diagnostics
                     placeholder="••••••••"
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={authSubmitting}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold py-2.5 rounded-lg text-xs transition shadow-md mt-2"
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-xs transition shadow-lg shadow-indigo-600/20 mt-2 flex items-center justify-center gap-2"
                 >
-                  {authSubmitting ? "Memproses..." : authTab === "login" ? "Masuk Sekarang" : "Buat Akun Gratis"}
+                  {authSubmitting ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Memproses...</span>
+                    </>
+                  ) : authTab === "login" ? (
+                    "Masuk ke Akun"
+                  ) : (
+                    "Buat Akun Gratis"
+                  )}
                 </button>
               </form>
+
+              {/* Benefits footer */}
+              <div className="pt-2 border-t border-slate-800 text-[11px] text-slate-400 space-y-1">
+                <div className="flex items-center gap-1.5 text-slate-300">
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Riwayat scan tersimpan permanen di cloud database</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-slate-300">
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Akses link shareable publik tanpa batas</span>
+                </div>
+              </div>
             </div>
           </div>
         )}

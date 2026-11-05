@@ -67,6 +67,8 @@ db.exec(`
     name TEXT NOT NULL,
     password_hash TEXT NOT NULL,
     role TEXT DEFAULT 'free', -- 'free' | 'pro'
+    google_id TEXT,
+    avatar_url TEXT,
     created_at TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
@@ -90,6 +92,13 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
 `);
+
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN google_id TEXT;`);
+} catch {}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN avatar_url TEXT;`);
+} catch {}
 
 export interface ScanRecord {
   id: string;
@@ -288,6 +297,8 @@ export interface UserRecord {
   name: string;
   password_hash: string;
   role: "free" | "pro";
+  google_id?: string | null;
+  avatar_url?: string | null;
   created_at: string;
 }
 
@@ -300,6 +311,42 @@ export function createUser(email: string, name: string, passwordHash: string): U
   `);
   stmt.run(id, email.toLowerCase(), name, passwordHash, now);
   return { id, email: email.toLowerCase(), name, password_hash: passwordHash, role: "free", created_at: now };
+}
+
+export function findOrCreateGoogleUser(data: {
+  googleId: string;
+  email: string;
+  name: string;
+  avatarUrl?: string;
+}): UserRecord {
+  const existing = findUserByEmail(data.email);
+  if (existing) {
+    if (!existing.google_id || !existing.avatar_url) {
+      const updateStmt = db.prepare(`UPDATE users SET google_id = ?, avatar_url = ? WHERE id = ?`);
+      updateStmt.run(data.googleId, data.avatarUrl || null, existing.id);
+      existing.google_id = data.googleId;
+      existing.avatar_url = data.avatarUrl || null;
+    }
+    return existing;
+  }
+
+  const id = `usr_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`;
+  const now = new Date().toISOString();
+  const stmt = db.prepare(`
+    INSERT INTO users (id, email, name, password_hash, role, google_id, avatar_url, created_at)
+    VALUES (?, ?, ?, 'google_oauth_no_password', 'free', ?, ?, ?)
+  `);
+  stmt.run(id, data.email.toLowerCase(), data.name, data.googleId, data.avatarUrl || null, now);
+  return {
+    id,
+    email: data.email.toLowerCase(),
+    name: data.name,
+    password_hash: "google_oauth_no_password",
+    role: "free",
+    google_id: data.googleId,
+    avatar_url: data.avatarUrl || null,
+    created_at: now,
+  };
 }
 
 export function findUserByEmail(email: string): UserRecord | null {
