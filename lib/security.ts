@@ -150,6 +150,12 @@ export async function validateTargetUrl(rawUrl: string): Promise<{
 
   const hostname = parsed.hostname.toLowerCase();
 
+  // Allow local loopback testing unless explicitly disabled (ALLOW_LOCAL_SCAN=false)
+  const allowLocal = process.env.ALLOW_LOCAL_SCAN !== "false";
+  if (allowLocal && (hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".localhost"))) {
+    return { valid: true, sanitizedUrl: parsed.href };
+  }
+
   // Check forbidden hostnames and suffix matches
   if (
     FORBIDDEN_HOSTNAMES.has(hostname) ||
@@ -219,6 +225,12 @@ export function isSafeTargetUrlSync(rawUrl: string): { valid: boolean; reason?: 
     }
 
     const hostname = parsed.hostname.toLowerCase();
+
+    const allowLocal = process.env.ALLOW_LOCAL_SCAN !== "false";
+    if (allowLocal && (hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".localhost"))) {
+      return { valid: true };
+    }
+
     if (
       FORBIDDEN_HOSTNAMES.has(hostname) ||
       hostname.endsWith(".localhost") ||

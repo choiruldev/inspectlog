@@ -40,6 +40,7 @@ import {
   Download,
   Monitor,
   Smartphone,
+  Bug,
 } from "lucide-react";
 import { convertRequestsToHAR, downloadHARFile } from "@/lib/har";
 
@@ -202,6 +203,7 @@ export default function Home() {
   // Gemini AI Analysis state
   const [aiDiagnoses, setAiDiagnoses] = useState<Record<number, any>>({});
   const [loadingAiIdx, setLoadingAiIdx] = useState<number | null>(null);
+  const [loadingAllAi, setLoadingAllAi] = useState(false);
 
   // PWA Install state
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -287,6 +289,20 @@ export default function Home() {
     }
   };
 
+  const requestAllAiDiagnosis = async () => {
+    if (!result?.diagnostics || result.diagnostics.length === 0) return;
+    setLoadingAllAi(true);
+    try {
+      for (let i = 0; i < result.diagnostics.length; i++) {
+        if (!aiDiagnoses[i]) {
+          await requestAiDiagnosis(i, result.diagnostics[i]);
+        }
+      }
+    } finally {
+      setLoadingAllAi(false);
+    }
+  };
+
   const handleSubmitFeedback = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fbMessage.trim()) return;
@@ -331,6 +347,14 @@ export default function Home() {
   useEffect(() => {
     fetchHistory();
     fetchCurrentUser();
+
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const prefill = searchParams.get("inspectUrl") || searchParams.get("url");
+      if (prefill) {
+        setUrl(prefill);
+      }
+    }
 
     const handleBeforeInstall = (e: any) => {
       e.preventDefault();
@@ -665,6 +689,28 @@ ${result.diagnostics
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 sm:pb-8 space-y-6">
         {/* Terminal Input Station */}
         <section className="border border-zinc-800/80 bg-zinc-950/70 rounded-xl overflow-hidden shadow-sm">
+          {/* Quick Simulation Banner */}
+          <div className="bg-gradient-to-r from-rose-950/40 via-purple-950/20 to-transparent border-b border-zinc-800/80 px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 text-zinc-300">
+              <Bug className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+              <span className="text-zinc-400">Ingin menguji simulasi bug & melihat solusi error?</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setUrl("http://localhost:3000/playground?autobug=true")}
+                className="text-[11px] font-mono px-2 py-0.5 rounded bg-rose-950/80 text-rose-300 hover:bg-rose-900 border border-rose-800 transition"
+              >
+                Isi URL Playground Otomatis
+              </button>
+              <Link
+                href="/playground"
+                className="text-zinc-400 hover:text-zinc-200 font-mono text-[11px] underline flex items-center gap-1"
+              >
+                Buka Lab 🧪
+              </Link>
+            </div>
+          </div>
           <form onSubmit={handleInspect} className="divide-y divide-zinc-800/80">
             {/* Primary Command Input Bar */}
             <div className="p-3 sm:p-4 flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-center">
@@ -1402,7 +1448,30 @@ ${result.diagnostics
                     </p>
                   </div>
                 ) : (
-                  result.diagnostics.map((item, idx) => (
+                  <>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-[#0a0d16] border border-zinc-800 p-3.5 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Bot className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <div>
+                          <span className="text-xs text-zinc-200 font-semibold block">
+                            Terdeteksi {result.diagnostics.length} temuan bug / anomali
+                          </span>
+                          <span className="text-[11px] text-zinc-400">
+                            Dapatkan penjelasan akar masalah & potongan kode solusi perbaikan otomatis.
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={requestAllAiDiagnosis}
+                        disabled={loadingAllAi}
+                        className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:text-zinc-500 text-zinc-950 font-semibold px-3.5 py-1.5 rounded-lg text-xs transition flex items-center gap-2 shadow-sm shrink-0"
+                      >
+                        <Bot className={`w-3.5 h-3.5 ${loadingAllAi ? "animate-spin" : ""}`} />
+                        {loadingAllAi ? "Mendiagnosa Seluruh Error..." : "Diagnosa Semua Error dengan AI"}
+                      </button>
+                    </div>
+
+                    {result.diagnostics.map((item, idx) => (
                     <div
                       key={idx}
                       className={`border rounded-lg p-4 space-y-3 bg-[#0c0e14] ${
@@ -1532,8 +1601,9 @@ ${result.diagnostics
                         </div>
                       )}
                     </div>
-                  ))
-                )}
+                  ))}
+                </>
+              )}
               </div>
             )}
 

@@ -21,8 +21,8 @@
 /build
 
 # local database
-/data/*.db
-/data/*.db-journal
+/data/*
+!/data/.gitkeep
 *.pem
 
 # debug

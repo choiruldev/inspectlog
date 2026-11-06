@@ -70,11 +70,44 @@ Kembalikan jawaban HANYA berupa JSON valid dengan format:
 
   // Intelligent Fallback Expert Engine (Runs zero-latency when API key not configured)
   const statusNum = Number(input.status);
+  const failureReasonLower = (input.failureReason || "").toLowerCase();
+  const urlLower = (input.url || "").toLowerCase();
 
-  if (input.failureReason?.includes("CORS") || input.failureReason?.includes("Failed to fetch")) {
+  // JavaScript Runtime Crashes & Exceptions
+  if (
+    failureReasonLower.includes("cannot read properties") ||
+    failureReasonLower.includes("undefined") ||
+    failureReasonLower.includes("null") ||
+    failureReasonLower.includes("typeerror") ||
+    failureReasonLower.includes("referenceerror") ||
+    failureReasonLower.includes("uncaught")
+  ) {
+    return {
+      rootCause: `Script JavaScript frontend mengalami runtime exception: "${input.failureReason || "Null pointer dereference"}". Kode mencoba mengakses properti atau memanggil fungsi pada objek yang bernilai undefined atau null.`,
+      sideFault: "Frontend",
+      confidence: 98,
+      recommendation: "Gunakan optional chaining (`?.`), null-coalescing operator (`??`), atau defensive null-checking sebelum mengakses properti objek.",
+      suggestedFixCode: `// Contoh perbaikan dengan optional chaining & fallback:\nconst result = data?.items?.map(item => item?.title) ?? [];\n\n// Atau penanganan defensive if-check:\nif (order && typeof order.calculateTotal === "function") {\n  order.calculateTotal();\n}`,
+      aiEngine: "Built-in Expert Engine",
+    };
+  }
+
+  // Unhandled Promise Rejections
+  if (failureReasonLower.includes("promise") || failureReasonLower.includes("unhandled")) {
+    return {
+      rootCause: "Pemanggilan fungsi asinkron (Promise) mengalami penolakan (rejection) tanpa blok penanganan error (`.catch()` atau `try-catch`).",
+      sideFault: "Frontend",
+      confidence: 96,
+      recommendation: "Bungkus setiap asynchronous execution / Promise dengan blok `try-catch` atau rantai `.catch()` agar thread browser tidak crash.",
+      suggestedFixCode: `// Pola try-catch untuk async/await:\ntry {\n  const res = await performAsyncTask();\n} catch (err) {\n  console.error("Async error tertangkap:", err);\n}`,
+      aiEngine: "Built-in Expert Engine",
+    };
+  }
+
+  if (failureReasonLower.includes("cors") || failureReasonLower.includes("failed to fetch")) {
     return {
       rootCause: "Browser memblokir request karena kebijakan CORS (Cross-Origin Resource Sharing). Server backend tidak menyertakan header 'Access-Control-Allow-Origin' yang mengizinkan origin frontend ini.",
-      sideFault: "Backend",
+      sideFault: "Network / CORS",
       confidence: 98,
       recommendation: "Tambahkan middleware CORS di backend Anda dan pastikan header 'Access-Control-Allow-Origin' menyertakan domain frontend.",
       suggestedFixCode: `// Express.js CORS fix:\napp.use(cors({\n  origin: ['https://yourfrontend.com'],\n  credentials: true\n}));`,
@@ -99,16 +132,29 @@ Kembalikan jawaban HANYA berupa JSON valid dengan format:
       sideFault: "Backend",
       confidence: 90,
       recommendation: "Periksa Role-Based Access Control (RBAC) pada controller backend untuk endpoint terkait.",
+      suggestedFixCode: `// Verifikasi role middleware backend:\nfunction requireRole(role) {\n  return (req, res, next) => {\n    if (req.user?.role !== role) {\n      return res.status(403).json({ error: "Access denied" });\n    }\n    next();\n  };\n}`,
+      aiEngine: "Built-in Expert Engine",
+    };
+  }
+
+  if (statusNum === 404) {
+    return {
+      rootCause: `Endpoint atau file resource '${input.url}' tidak ditemukan di server (HTTP 404). Route belum terdaftar di backend atau path URL pada frontend salah ketik (typo).`,
+      sideFault: "Backend",
+      confidence: 94,
+      recommendation: "Pastikan router backend mendefinisikan URL endpoint ini dan periksa kembali base URL API pada konfigurasi frontend.",
+      suggestedFixCode: `// Daftarkan route di router backend:\nrouter.get('/api/endpoint-target', handlerController);`,
       aiEngine: "Built-in Expert Engine",
     };
   }
 
   if (statusNum === 400 || statusNum === 422) {
     return {
-      rootCause: "Validasi payload gagal (Bad Request). Struktur JSON atau tipe data yang dikirim oleh frontend tidak cocok dengan schema validasi yang diminta oleh backend.",
+      rootCause: "Validasi payload gagal (Bad Request / Unprocessable Entity). Struktur JSON atau tipe data yang dikirim oleh frontend tidak cocok dengan schema validasi yang diminta oleh backend.",
       sideFault: "Frontend",
       confidence: 92,
       recommendation: "Bandingkan 'Lemparan (Request Payload)' dengan schema DTO/Zod/Joi backend. Pastikan semua field wajib terisi dengan tipe data yang tepat.",
+      suggestedFixCode: `// Schema validasi (contoh Zod):\nconst payloadSchema = z.object({\n  email: z.string().email(),\n  quantity: z.number().int().min(1)\n});`,
       aiEngine: "Built-in Expert Engine",
     };
   }

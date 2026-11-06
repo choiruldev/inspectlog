@@ -11,8 +11,15 @@ if (!fs.existsSync(dataDir)) {
 const dbPath = path.join(dataDir, "inspect.db");
 const db = new DatabaseSync(dbPath);
 
+// Enable WAL mode and 5000ms busy timeout to prevent concurrent lock issues
+try {
+  db.exec(`PRAGMA journal_mode = WAL;`);
+  db.exec(`PRAGMA busy_timeout = 5000;`);
+} catch {}
+
 // Initialize tables
-db.exec(`
+try {
+  db.exec(`
   CREATE TABLE IF NOT EXISTS scans (
     id TEXT PRIMARY KEY,
     target_url TEXT NOT NULL,
@@ -92,6 +99,12 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
 `);
+} catch (e: any) {
+  // If database is already initialized by another concurrent worker thread, ignore busy lock
+  if (!e.message?.includes("locked")) {
+    console.warn("Table initialization notice:", e.message);
+  }
+}
 
 try {
   db.exec(`ALTER TABLE users ADD COLUMN google_id TEXT;`);
